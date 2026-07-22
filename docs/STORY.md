@@ -1,0 +1,3 @@
+# Story
+
+> Story document placeholder
