@@ -33,6 +33,7 @@ export const DEFAULT_KEYBOARD_BINDINGS: IInputBinding[] = [
   { action: InputAction.CONFIRM, device: "keyboard", code: "SPACE" },
   { action: InputAction.BACK, device: "keyboard", code: "ESC" },
   { action: InputAction.BACK, device: "keyboard", code: "BACKSPACE" },
+  { action: InputAction.DEBUG_TOGGLE, device: "keyboard", code: "F3" },
 ];
 
 export const DEFAULT_GAMEPAD_BINDINGS: IInputBinding[] = [

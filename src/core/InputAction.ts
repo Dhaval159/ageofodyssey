@@ -17,4 +17,5 @@ export enum InputAction {
   PAUSE = "PAUSE",
   CONFIRM = "CONFIRM",
   BACK = "BACK",
+  DEBUG_TOGGLE = "DEBUG_TOGGLE",
 }

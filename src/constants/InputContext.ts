@@ -26,6 +26,7 @@ export class InputContext {
     InputAction.BLOCK,
     InputAction.INTERACT,
     InputAction.PAUSE,
+    InputAction.DEBUG_TOGGLE,
   ];
 
   public static readonly DIALOGUE: InputAction[] = [
