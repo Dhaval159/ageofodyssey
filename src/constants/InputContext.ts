@@ -19,6 +19,7 @@ export class InputContext {
     InputAction.MOVE_DOWN,
     InputAction.MOVE_LEFT,
     InputAction.MOVE_RIGHT,
+    InputAction.RUN,
     InputAction.ATTACK,
     InputAction.HEAVY_ATTACK,
     InputAction.ROLL,

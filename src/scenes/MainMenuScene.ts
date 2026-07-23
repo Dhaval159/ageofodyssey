@@ -6,6 +6,7 @@ import { GameState } from "../core/GameStateManager";
 import { InputManager } from "../core/InputManager";
 import { InputAction } from "../core/InputAction";
 import { InputContext } from "../constants/InputContext";
+import { SceneTransitionManager } from "../core/SceneTransitionManager";
 import { Button } from "../utils/UIFactory";
 
 export default class MainMenuScene extends Phaser.Scene {
@@ -63,6 +64,7 @@ export default class MainMenuScene extends Phaser.Scene {
         label: "New Game",
         onClick: () => {
           Logger.getInstance().log("[MainMenu] New Game clicked");
+          SceneTransitionManager.getInstance().transitionTo("GameScene", { fadeDuration: 500 });
         },
       },
       {
@@ -119,6 +121,9 @@ export default class MainMenuScene extends Phaser.Scene {
 
     this.buttons[this.selectedIndex].setSelected(true);
 
+    const transitionManager = SceneTransitionManager.getInstance();
+    transitionManager.initialize(this);
+
     const inputManager = InputManager.getInstance();
     inputManager.initialize(this, {
       bindingsProfile: InputContext.createFilteredBindings(InputContext.MENU),
@@ -132,6 +137,7 @@ export default class MainMenuScene extends Phaser.Scene {
 
   update(): void {
     const input = InputManager.getInstance();
+    input.update();
 
     if (input.wasJustPressed(InputAction.MOVE_UP)) {
       this.moveSelection(-1);

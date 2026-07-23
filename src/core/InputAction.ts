@@ -7,6 +7,7 @@ export enum InputAction {
   MOVE_DOWN = "MOVE_DOWN",
   MOVE_LEFT = "MOVE_LEFT",
   MOVE_RIGHT = "MOVE_RIGHT",
+  RUN = "RUN",
   ATTACK = "ATTACK",
   HEAVY_ATTACK = "HEAVY_ATTACK",
   ROLL = "ROLL",
