@@ -2,11 +2,32 @@ import Phaser from "phaser";
 import { PlayerController } from "./PlayerController";
 import { PlayerInputBridge } from "./PlayerInputBridge";
 import { DEFAULT_PLAYER_CONFIG, IPlayerConfig } from "./PlayerConfig";
+import { AnimationController } from "../../systems/animation/AnimationController";
+import { AnimationManager } from "../../systems/animation/AnimationManager";
+import { AnimationId } from "../../systems/animation/AnimationConfig";
+import { PlayerStateId } from "./PlayerStateMachine";
+import { CombatController } from "../../systems/combat/CombatController";
+import { CombatManager } from "../../systems/combat/CombatManager";
+import { WeaponManager } from "../../systems/combat/WeaponManager";
+import { AttackType } from "../../data/AttackData";
+
+const STATE_TO_ANIMATION: Record<PlayerStateId, AnimationId> = {
+  [PlayerStateId.IDLE]: AnimationId.IDLE,
+  [PlayerStateId.WALKING]: AnimationId.WALK,
+  [PlayerStateId.RUNNING]: AnimationId.RUN,
+  [PlayerStateId.ROLLING]: AnimationId.ROLL,
+  [PlayerStateId.ATTACKING]: AnimationId.ATTACK,
+  [PlayerStateId.HEAVY_ATTACKING]: AnimationId.HEAVY_ATTACK,
+  [PlayerStateId.BLOCKING]: AnimationId.BLOCK,
+  [PlayerStateId.HURT]: AnimationId.HURT,
+  [PlayerStateId.DEAD]: AnimationId.DEATH,
+};
 
 export class Player extends Phaser.GameObjects.Container {
   private controller: PlayerController;
   private inputBridge: PlayerInputBridge;
-  private bodyRect: Phaser.GameObjects.Rectangle;
+  private animationController: AnimationController;
+  private combatController: CombatController;
   private directionIndicator: Phaser.GameObjects.Arc;
 
   constructor(
@@ -22,16 +43,35 @@ export class Player extends Phaser.GameObjects.Container {
     this.controller.setPosition(x, y);
     this.inputBridge = new PlayerInputBridge();
 
-    // Visual placeholder - Colored Rectangle
-    this.bodyRect = scene.add.rectangle(
-      0,
-      0,
-      config.size.width,
-      config.size.height,
-      config.color
+    // Create animation controller via AnimationManager
+    const animManager = AnimationManager.getInstance();
+    const animController = animManager.createController(
+      scene,
+      "player",
+      "player",
+      x,
+      y
     );
-    this.bodyRect.setStrokeStyle(2, 0xffffff, 0.8);
-    this.add(this.bodyRect);
+    if (!animController) {
+      throw new Error("Failed to create AnimationController for player");
+    }
+    this.animationController = animController;
+
+    const sprite = this.animationController.getSprite();
+    this.add(sprite);
+
+    const weapon = WeaponManager.getInstance().createWeapon(scene, config.combat.weaponKey);
+    if (!weapon) {
+      throw new Error(`Failed to create weapon: ${config.combat.weaponKey}`);
+    }
+
+    const combatMgr = CombatManager.getInstance();
+    this.combatController = new CombatController(
+      weapon,
+      combatMgr.getHitboxManager(),
+      "player"
+    );
+    combatMgr.registerController("player", this.combatController);
 
     // Direction Indicator - Gold Circle
     this.directionIndicator = scene.add.circle(0, 16, 6, 0xffd700);
@@ -54,6 +94,14 @@ export class Player extends Phaser.GameObjects.Container {
     return this.controller;
   }
 
+  public getAnimationController(): AnimationController {
+    return this.animationController;
+  }
+
+  public getCombatController(): CombatController {
+    return this.combatController;
+  }
+
   public update(_time: number, delta: number): void {
     const dt = delta / 1000;
 
@@ -61,19 +109,53 @@ export class Player extends Phaser.GameObjects.Container {
     const input = this.inputBridge.getInput();
     this.controller.update(dt, input);
 
-    // Sync visual body and indicator positions
+    // Sync physics body
     const body = this.body as Phaser.Physics.Arcade.Body;
 
     // Apply controller velocity to Phaser physics body
     const velocity = this.controller.getVelocity();
     body.setVelocity(velocity.x, velocity.y);
 
-    // Sync controller logical position back from Phaser (since Phaser resolves physics/collisions)
+    // Sync controller logical position back from Phaser
     this.controller.setPosition(this.x, this.y);
 
-    // Update direction indicator relative to facing direction
+    // Player state machine handling
+    const playerStateId = this.controller.getStateMachine().getCurrentStateId();
+
+    // Combat: request attack when entering ATTACKING or HEAVY_ATTACKING state
+    if (playerStateId === PlayerStateId.ATTACKING) {
+      const dir = this.controller.getFacingDirection();
+      this.combatController.requestAttack(
+        AttackType.LIGHT,
+        dir,
+        { x: this.x, y: this.y }
+      );
+    } else if (playerStateId === PlayerStateId.HEAVY_ATTACKING) {
+      const dir = this.controller.getFacingDirection();
+      this.combatController.requestAttack(
+        AttackType.HEAVY,
+        dir,
+        { x: this.x, y: this.y }
+      );
+    }
+
+    // Update combat controller each frame
     const dir = this.controller.getFacingDirection();
+    this.combatController.update(dt, { x: this.x, y: this.y }, dir);
+
+    // Map player state to animation state and request it
+    if (playerStateId !== null) {
+      const animId = STATE_TO_ANIMATION[playerStateId];
+      this.animationController.requestState(animId);
+    }
+
+    // Compute speed from velocity for animation speed scaling
+    const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
+    this.animationController.update(delta, speed);
+
+    // Update direction indicator relative to facing direction
+    const facingDir = this.controller.getFacingDirection();
     const distance = 16;
-    this.directionIndicator.setPosition(dir.x * distance, dir.y * distance);
+    this.directionIndicator.setPosition(facingDir.x * distance, facingDir.y * distance);
   }
 }

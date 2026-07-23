@@ -8,6 +8,7 @@ import {
   RunningState,
   RollingState,
   AttackingState,
+  HeavyAttackingState,
   BlockingState,
   HurtState,
   DeadState,
@@ -21,6 +22,7 @@ export class PlayerController {
     isRunning: false,
     isRolling: false,
     isAttacking: false,
+    isHeavyAttacking: false,
     isBlocking: false,
   };
 
@@ -38,6 +40,7 @@ export class PlayerController {
     this.stateMachine.registerState(new RunningState());
     this.stateMachine.registerState(new RollingState());
     this.stateMachine.registerState(new AttackingState());
+    this.stateMachine.registerState(new HeavyAttackingState());
     this.stateMachine.registerState(new BlockingState());
     this.stateMachine.registerState(new HurtState());
     this.stateMachine.registerState(new DeadState());

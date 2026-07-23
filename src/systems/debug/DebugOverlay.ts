@@ -3,6 +3,8 @@ import { Logger } from "../../core/Logger";
 import { InputManager } from "../../core/InputManager";
 import { InputAction } from "../../core/InputAction";
 import { CameraManager } from "../camera/CameraManager";
+import { CombatManager } from "../combat/CombatManager";
+import { HitboxShape } from "../../data/AttackData";
 
 export class DebugOverlay {
   private container: Phaser.GameObjects.Container;
@@ -10,6 +12,7 @@ export class DebugOverlay {
   private infoText: Phaser.GameObjects.Text;
   private collisionGraphics: Phaser.GameObjects.Graphics;
   private deadzoneGraphics: Phaser.GameObjects.Graphics;
+  private hitboxGraphics: Phaser.GameObjects.Graphics;
   private enabled: boolean = false;
   private cameraManager: CameraManager | null = null;
   private player: Phaser.GameObjects.GameObject | null = null;
@@ -51,9 +54,14 @@ export class DebugOverlay {
     this.deadzoneGraphics.setScrollFactor(0);
     this.deadzoneGraphics.setDepth(9997);
 
+    this.hitboxGraphics = scene.add.graphics();
+    this.hitboxGraphics.setScrollFactor(1);
+    this.hitboxGraphics.setDepth(9998);
+
     this.container.setVisible(false);
     this.collisionGraphics.setVisible(false);
     this.deadzoneGraphics.setVisible(false);
+    this.hitboxGraphics.setVisible(false);
 
     this.COLLISION_STROKE = 0xff00ff;
     this.DEADZONE_STROKE = 0x00ffff;
@@ -84,6 +92,7 @@ export class DebugOverlay {
     this.container.setVisible(this.enabled);
     this.collisionGraphics.setVisible(this.enabled);
     this.deadzoneGraphics.setVisible(this.enabled);
+    this.hitboxGraphics.setVisible(this.enabled);
     Logger.getInstance().log(
       `[DebugOverlay] Toggled ${this.enabled ? "ON" : "OFF"}`
     );
@@ -107,6 +116,7 @@ export class DebugOverlay {
     this.renderInfoText();
     this.renderCollisionBoxes();
     this.renderDeadzone();
+    this.renderHitboxes();
   }
 
   private renderFpsText(): void {
@@ -170,10 +180,33 @@ export class DebugOverlay {
     this.deadzoneGraphics.strokeRect(dzX, dzY, dz.width, dz.height);
   }
 
+  private renderHitboxes(): void {
+    this.hitboxGraphics.clear();
+
+    const combatManager = CombatManager.getInstance();
+    const hitboxes = combatManager.getHitboxManager().getHitboxesForDebug();
+
+    for (const hb of hitboxes) {
+      this.hitboxGraphics.lineStyle(2, 0xff4444, 0.9);
+      this.hitboxGraphics.fillStyle(0xff4444, 0.2);
+
+      if (hb.shape === HitboxShape.RECTANGLE && hb.width && hb.height) {
+        const hw = hb.width / 2;
+        const hh = hb.height / 2;
+        this.hitboxGraphics.fillRect(hb.x - hw, hb.y - hh, hb.width, hb.height);
+        this.hitboxGraphics.strokeRect(hb.x - hw, hb.y - hh, hb.width, hb.height);
+      } else if (hb.shape === HitboxShape.CIRCLE && hb.radius) {
+        this.hitboxGraphics.fillCircle(hb.x, hb.y, hb.radius);
+        this.hitboxGraphics.strokeCircle(hb.x, hb.y, hb.radius);
+      }
+    }
+  }
+
   public destroy(): void {
     this.container.destroy();
     this.collisionGraphics.destroy();
     this.deadzoneGraphics.destroy();
+    this.hitboxGraphics.destroy();
     Logger.getInstance().log("[DebugOverlay] Destroyed");
   }
 }

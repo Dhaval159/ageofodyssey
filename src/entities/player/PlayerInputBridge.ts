@@ -6,6 +6,7 @@ export interface IPlayerInput {
   isRunning: boolean;
   isRolling: boolean;
   isAttacking: boolean;
+  isHeavyAttacking: boolean;
   isBlocking: boolean;
 }
 
@@ -37,6 +38,7 @@ export class PlayerInputBridge {
       isRunning: this.inputManager.isHeld(InputAction.RUN),
       isRolling: this.inputManager.isPressed(InputAction.ROLL),
       isAttacking: this.inputManager.isPressed(InputAction.ATTACK),
+      isHeavyAttacking: this.inputManager.isPressed(InputAction.HEAVY_ATTACK),
       isBlocking: this.inputManager.isHeld(InputAction.BLOCK),
     };
   }

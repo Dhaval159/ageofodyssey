@@ -11,6 +11,7 @@ import { WorldManager } from "../managers/WorldManager";
 import { CameraManager } from "../systems/camera/CameraManager";
 import { WORLD_CONSTANTS } from "../constants/WorldConstants";
 import { DebugOverlay } from "../systems/debug/DebugOverlay";
+import { CombatManager } from "../systems/combat/CombatManager";
 
 export default class GameScene extends Phaser.Scene {
   private worldManager: WorldManager | null = null;
@@ -32,6 +33,8 @@ export default class GameScene extends Phaser.Scene {
     InputManager.getInstance().initialize(this, {
       bindingsProfile: InputContext.createFilteredBindings(InputContext.GAMEPLAY),
     });
+
+    CombatManager.getInstance().initialize();
 
     this.worldManager = WorldManager.initialize(this);
 
