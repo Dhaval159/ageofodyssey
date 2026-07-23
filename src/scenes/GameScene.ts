@@ -12,12 +12,16 @@ import { CameraManager } from "../systems/camera/CameraManager";
 import { WORLD_CONSTANTS } from "../constants/WorldConstants";
 import { DebugOverlay } from "../systems/debug/DebugOverlay";
 import { CombatManager } from "../systems/combat/CombatManager";
+import { EnemyManager } from "../entities/enemies/framework/EnemyManager";
+import { Wolf } from "../entities/enemies/wolf/Wolf";
+import { CollisionManager } from "../managers/CollisionManager";
 
 export default class GameScene extends Phaser.Scene {
   private worldManager: WorldManager | null = null;
   private cameraManager: CameraManager | null = null;
   private player: Player | null = null;
   private debugOverlay: DebugOverlay | null = null;
+  private enemyGroup: Phaser.Physics.Arcade.Group | null = null;
 
   constructor() {
     super({ key: "GameScene" });
@@ -35,6 +39,7 @@ export default class GameScene extends Phaser.Scene {
     });
 
     CombatManager.getInstance().initialize();
+    EnemyManager.getInstance().initialize();
 
     this.worldManager = WorldManager.initialize(this);
 
@@ -74,6 +79,9 @@ export default class GameScene extends Phaser.Scene {
     });
     this.cameraManager.follow(this.player);
 
+    this.setupEnemies();
+    this.setupCollisions();
+
     this.debugOverlay = new DebugOverlay(this);
     this.debugOverlay.setCameraManager(this.cameraManager);
     this.debugOverlay.setPlayer(this.player);
@@ -81,9 +89,42 @@ export default class GameScene extends Phaser.Scene {
     this.createInstructions();
   }
 
+  private setupEnemies(): void {
+    if (!this.player) return;
+
+    this.enemyGroup = this.physics.add.group();
+
+    const wb = this.worldManager!.getWorldBounds();
+    const spawnX = wb.width / 2;
+    const spawnY = wb.height / 2;
+
+    const wolf1 = new Wolf(this, spawnX + 250, spawnY + 150, this.player);
+    this.enemyGroup.add(wolf1);
+
+    const wolf2 = new Wolf(this, spawnX - 200, spawnY - 100, this.player);
+    this.enemyGroup.add(wolf2);
+
+    const wolf3 = new Wolf(this, spawnX + 180, spawnY - 180, this.player);
+    this.enemyGroup.add(wolf3);
+
+    Logger.getInstance().log("[GameScene] Enemies spawned");
+  }
+
+  private setupCollisions(): void {
+    if (!this.player || !this.enemyGroup) return;
+
+    const collisionMgr = CollisionManager.getInstance();
+    const objectGroup = collisionMgr.getObjectGroup();
+    if (objectGroup) {
+      this.physics.add.collider(this.enemyGroup, objectGroup);
+    }
+
+    this.physics.add.collider(this.player, this.enemyGroup);
+  }
+
   private createInstructions(): void {
     const { width, height } = this.scale;
-    const instructions = this.add.text(16, 16, "Move: WASD/Arrows | Run: Hold Shift\nF3: Debug | Back to Menu: Click text below", {
+    const instructions = this.add.text(16, 16, "Move: WASD/Arrows | Run: Hold Shift\nF3: Debug | Back to Menu: Click text below\nAttack: J | Heavy Attack: K", {
       fontSize: "16px",
       color: "#88aaff",
       backgroundColor: "#00000088",
@@ -113,6 +154,12 @@ export default class GameScene extends Phaser.Scene {
 
     if (this.player) {
       this.player.update(time, delta);
+    }
+
+    EnemyManager.getInstance().update(time, delta);
+    EnemyManager.getInstance().checkPlayerHitboxCollisions();
+    if (this.player) {
+      EnemyManager.getInstance().checkEnemyHitboxCollisions(this.player);
     }
 
     if (this.cameraManager) {

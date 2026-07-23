@@ -151,6 +151,196 @@ export class AnimationRegistry {
     Logger.getInstance().log(`[AnimationRegistry] Player placeholder animations generated (${totalFrames} frames)`);
   }
 
+  public static generateWolfPlaceholders(scene: Phaser.Scene): void {
+    const fw = 40;
+    const fh = 28;
+    const color = 0x808080;
+    const stroke = 0x404040;
+
+    const defs: Record<string, { frameCount: number; frameRate: number; repeat: number; speedScale?: number }> = {
+      [AnimationId.IDLE]: { frameCount: 2, frameRate: 3, repeat: -1 },
+      [AnimationId.WALK]: { frameCount: 3, frameRate: 6, repeat: -1, speedScale: 1.2 },
+      [AnimationId.RUN]: { frameCount: 3, frameRate: 10, repeat: -1, speedScale: 1.5 },
+      [AnimationId.ATTACK]: { frameCount: 2, frameRate: 8, repeat: 0 },
+      [AnimationId.HURT]: { frameCount: 1, frameRate: 1, repeat: 0 },
+      [AnimationId.DEATH]: { frameCount: 2, frameRate: 4, repeat: 0 },
+    };
+
+    const prefix = "placeholder_wolf";
+    const sheetKey = `${prefix}_sheet`;
+
+    const totalFrames = Object.values(defs).reduce((sum, d) => sum + d.frameCount, 0);
+    const sheetWidth = fw * totalFrames;
+    const sheetHeight = fh;
+
+    const graphics = scene.make.graphics();
+
+    let frameIndex = 0;
+    for (const [animIdStr, animDef] of Object.entries(defs)) {
+      const animId = animIdStr as AnimationId;
+      for (let f = 0; f < animDef.frameCount; f++) {
+        const ox = frameIndex * fw;
+        AnimationRegistry.drawWolfFrame(graphics, ox, 0, fw, fh, animId, f, animDef.frameCount, color, stroke);
+        frameIndex++;
+      }
+    }
+
+    graphics.generateTexture(sheetKey, sheetWidth, sheetHeight);
+    graphics.destroy();
+
+    const texture = scene.textures.get(sheetKey);
+    texture.add("__BASE", 0, 0, 0, sheetWidth, sheetHeight);
+
+    let globalFrameIndex = 0;
+    for (const [animIdStr, animDef] of Object.entries(defs)) {
+      const animId = animIdStr as AnimationId;
+      const frameIndices: number[] = [];
+      for (let f = 0; f < animDef.frameCount; f++) {
+        const frameName = `frame_${globalFrameIndex}`;
+        texture.add(frameName, 0, globalFrameIndex * fw, 0, fw, fh);
+        frameIndices.push(globalFrameIndex);
+        globalFrameIndex++;
+      }
+
+      const animKey = `${prefix}_${animId.toLowerCase()}`;
+      if (!scene.anims.exists(animKey)) {
+        scene.anims.create({
+          key: animKey,
+          frames: frameIndices.map((i) => ({
+            key: sheetKey,
+            frame: `frame_${i}`,
+          })),
+          frameRate: animDef.frameRate,
+          repeat: animDef.repeat,
+        });
+      }
+    }
+
+    const animations: Record<AnimationId, AnimationDef> = {} as Record<AnimationId, AnimationDef>;
+    for (const [animIdStr, animDef] of Object.entries(defs)) {
+      const animId = animIdStr as AnimationId;
+      animations[animId] = {
+        key: sheetKey,
+        prefix,
+        frameCount: animDef.frameCount,
+        frameRate: animDef.frameRate,
+        repeat: animDef.repeat,
+        speedScale: animDef.speedScale,
+      };
+    }
+
+    const transitions: AnimationTransition[] = [
+      { from: AnimationId.IDLE, to: AnimationId.WALK },
+      { from: AnimationId.IDLE, to: AnimationId.RUN },
+      { from: AnimationId.WALK, to: AnimationId.IDLE },
+      { from: AnimationId.WALK, to: AnimationId.RUN },
+      { from: AnimationId.RUN, to: AnimationId.IDLE },
+      { from: AnimationId.RUN, to: AnimationId.WALK },
+      { from: AnimationId.IDLE, to: AnimationId.ATTACK },
+      { from: AnimationId.WALK, to: AnimationId.ATTACK },
+      { from: AnimationId.RUN, to: AnimationId.ATTACK },
+      { from: AnimationId.IDLE, to: AnimationId.HURT },
+      { from: AnimationId.WALK, to: AnimationId.HURT },
+      { from: AnimationId.RUN, to: AnimationId.HURT },
+      { from: AnimationId.ATTACK, to: AnimationId.IDLE },
+      { from: AnimationId.ATTACK, to: AnimationId.WALK },
+      { from: AnimationId.ATTACK, to: AnimationId.RUN },
+      { from: AnimationId.HURT, to: AnimationId.IDLE },
+      { from: AnimationId.HURT, to: AnimationId.WALK },
+      { from: AnimationId.HURT, to: AnimationId.RUN },
+      { from: AnimationId.IDLE, to: AnimationId.DEATH },
+      { from: AnimationId.WALK, to: AnimationId.DEATH },
+      { from: AnimationId.RUN, to: AnimationId.DEATH },
+      { from: AnimationId.ATTACK, to: AnimationId.DEATH },
+      { from: AnimationId.HURT, to: AnimationId.DEATH },
+    ];
+
+    const config: EntityAnimationConfig = {
+      entityType: "wolf",
+      animations,
+      defaultAnimation: AnimationId.IDLE,
+      transitions,
+      spritesheet: {
+        key: sheetKey,
+        frameWidth: fw,
+        frameHeight: fh,
+      },
+    };
+
+    AnimationRegistry.register("wolf", config);
+    Logger.getInstance().log(`[AnimationRegistry] Wolf placeholder animations generated (${totalFrames} frames)`);
+  }
+
+  private static drawWolfFrame(
+    g: Phaser.GameObjects.Graphics,
+    ox: number,
+    oy: number,
+    _fw: number,
+    _fh: number,
+    animId: AnimationId,
+    frame: number,
+    totalFrames: number,
+    color: number,
+    stroke: number
+  ): void {
+    const cx = ox + 18;
+    const bodyTop = oy + 8;
+    const bodyBottom = oy + 18;
+    const bodyWidth = 20;
+    const legHeight = 10;
+
+    g.fillStyle(color, 1);
+    g.lineStyle(1, stroke, 0.6);
+
+    const bobY = (animId === AnimationId.IDLE && frame === 1) ? 1 : 0;
+    const walkOffset = (animId === AnimationId.WALK || animId === AnimationId.RUN)
+      ? Math.sin((frame / totalFrames) * Math.PI * 2) * 3 : 0;
+    const runLean = (animId === AnimationId.RUN && frame % 2 === 1) ? 2 : 0;
+    const isDead = animId === AnimationId.DEATH;
+
+    const bodyY = bodyTop + bobY + (isDead && frame === 1 ? 6 : 0);
+    const headXOff = isDead && frame === 1 ? -4 : 0;
+
+    // Body
+    g.fillRect(ox + 8 + runLean, bodyY, bodyWidth, 10);
+    g.strokeRect(ox + 8 + runLean, bodyY, bodyWidth, 10);
+
+    // Head
+    if (isDead && frame === 1) {
+      g.fillCircle(cx - 6 + headXOff, bodyY + 5, 4);
+      g.strokeCircle(cx - 6 + headXOff, bodyY + 5, 4);
+    } else {
+      g.fillCircle(cx + 12 + runLean, bodyY + 3, 4);
+      g.strokeCircle(cx + 12 + runLean, bodyY + 3, 4);
+    }
+
+    if (animId === AnimationId.ATTACK) {
+      const mouthOpen = frame === 1 ? 3 : 0;
+      g.fillStyle(0xcc4444, 1);
+      g.fillCircle(cx + 16 + mouthOpen + runLean, bodyY + 5, 2);
+      g.fillStyle(color, 1);
+    }
+
+    // Legs
+    const legPhase = walkOffset;
+    g.fillRect(ox + 9 + runLean, bodyBottom + bobY + (isDead && frame === 1 ? 4 : 0), 4, legHeight + legPhase);
+    g.fillRect(ox + 15 + runLean, bodyBottom + bobY + (isDead && frame === 1 ? 4 : 0), 4, legHeight - legPhase);
+    g.fillRect(ox + 21 + runLean, bodyBottom + bobY + (isDead && frame === 1 ? 4 : 0), 4, legHeight - legPhase);
+    g.fillRect(ox + 27 + runLean, bodyBottom + bobY + (isDead && frame === 1 ? 4 : 0), 4, legHeight + legPhase);
+
+    // Tail
+    if (!isDead || frame === 0) {
+      g.fillRect(ox + 4 + runLean, bodyY + 2, 4, 3);
+    }
+
+    // Hurt flash
+    if (animId === AnimationId.HURT) {
+      g.fillStyle(0xff6666, 0.5);
+      g.fillRect(ox + 8, bodyTop, bodyWidth, 10);
+      g.fillStyle(color, 1);
+    }
+  }
+
   private static drawPlayerFrame(
     g: Phaser.GameObjects.Graphics,
     ox: number,

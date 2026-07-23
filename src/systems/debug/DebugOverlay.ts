@@ -5,6 +5,7 @@ import { InputAction } from "../../core/InputAction";
 import { CameraManager } from "../camera/CameraManager";
 import { CombatManager } from "../combat/CombatManager";
 import { HitboxShape } from "../../data/AttackData";
+import { EnemyManager } from "../../entities/enemies/framework/EnemyManager";
 
 export class DebugOverlay {
   private container: Phaser.GameObjects.Container;
@@ -13,6 +14,7 @@ export class DebugOverlay {
   private collisionGraphics: Phaser.GameObjects.Graphics;
   private deadzoneGraphics: Phaser.GameObjects.Graphics;
   private hitboxGraphics: Phaser.GameObjects.Graphics;
+  private enemyDebugGraphics: Phaser.GameObjects.Graphics;
   private enabled: boolean = false;
   private cameraManager: CameraManager | null = null;
   private player: Phaser.GameObjects.GameObject | null = null;
@@ -58,10 +60,15 @@ export class DebugOverlay {
     this.hitboxGraphics.setScrollFactor(1);
     this.hitboxGraphics.setDepth(9998);
 
+    this.enemyDebugGraphics = scene.add.graphics();
+    this.enemyDebugGraphics.setScrollFactor(1);
+    this.enemyDebugGraphics.setDepth(9996);
+
     this.container.setVisible(false);
     this.collisionGraphics.setVisible(false);
     this.deadzoneGraphics.setVisible(false);
     this.hitboxGraphics.setVisible(false);
+    this.enemyDebugGraphics.setVisible(false);
 
     this.COLLISION_STROKE = 0xff00ff;
     this.DEADZONE_STROKE = 0x00ffff;
@@ -93,6 +100,7 @@ export class DebugOverlay {
     this.collisionGraphics.setVisible(this.enabled);
     this.deadzoneGraphics.setVisible(this.enabled);
     this.hitboxGraphics.setVisible(this.enabled);
+    this.enemyDebugGraphics.setVisible(this.enabled);
     Logger.getInstance().log(
       `[DebugOverlay] Toggled ${this.enabled ? "ON" : "OFF"}`
     );
@@ -117,6 +125,7 @@ export class DebugOverlay {
     this.renderCollisionBoxes();
     this.renderDeadzone();
     this.renderHitboxes();
+    this.renderEnemyDebug();
   }
 
   private renderFpsText(): void {
@@ -135,13 +144,19 @@ export class DebugOverlay {
       info += "N/A";
     }
 
+    const enemies = EnemyManager.getInstance().getAllEnemies();
+    info += `\nEnemies: ${enemies.length}`;
+    for (const enemy of enemies) {
+      const state = enemy.controller.ai.getCurrentStateId() ?? "?";
+      const hp = enemy.controller.health.getCurrentHealth();
+      info += `\n  ${enemy.getEntityId().slice(0, 20)}: ${state} HP:${hp}`;
+    }
+
     if (this.cameraManager && this.cameraManager.isActive()) {
       const view = this.cameraManager.getCameraView();
       const dz = this.cameraManager.getDeadzone();
       const zoom = this.cameraManager.getZoom();
-      info += `\nCamera: (${view.x.toFixed(1)}, ${view.y.toFixed(1)}) | Zoom: ${zoom.toFixed(
-        2
-      )}`;
+      info += `\nCamera: (${view.x.toFixed(1)}, ${view.y.toFixed(1)}) | Zoom: ${zoom.toFixed(2)}`;
       info += `\nDeadzone: ${dz.width}x${dz.height}`;
     }
 
@@ -202,11 +217,38 @@ export class DebugOverlay {
     }
   }
 
+  private renderEnemyDebug(): void {
+    this.enemyDebugGraphics.clear();
+
+    const debugInfo = EnemyManager.getInstance().getDebugInfo();
+
+    for (const info of debugInfo) {
+      if (!info.isAlive) continue;
+
+      // Vision radius - blue
+      this.enemyDebugGraphics.lineStyle(1, 0x4488ff, 0.3);
+      this.enemyDebugGraphics.strokeCircle(info.x, info.y, info.visionRadius);
+
+      // Aggro radius - yellow
+      this.enemyDebugGraphics.lineStyle(1, 0xffff44, 0.3);
+      this.enemyDebugGraphics.strokeCircle(info.x, info.y, info.aggroRadius);
+
+      // Attack radius - red
+      this.enemyDebugGraphics.lineStyle(1, 0xff4444, 0.5);
+      this.enemyDebugGraphics.strokeCircle(info.x, info.y, info.attackRadius);
+
+      // State label
+      this.enemyDebugGraphics.lineStyle(1, 0x00ff00, 0.6);
+      this.enemyDebugGraphics.strokeCircle(info.x, info.y, 4);
+    }
+  }
+
   public destroy(): void {
     this.container.destroy();
     this.collisionGraphics.destroy();
     this.deadzoneGraphics.destroy();
     this.hitboxGraphics.destroy();
+    this.enemyDebugGraphics.destroy();
     Logger.getInstance().log("[DebugOverlay] Destroyed");
   }
 }

@@ -30,6 +30,7 @@ export default class BootScene extends Phaser.Scene {
     Logger.getInstance().log("Core textures generated");
 
     AnimationRegistry.generatePlayerPlaceholders(this);
+    AnimationRegistry.generateWolfPlaceholders(this);
     Logger.getInstance().log("Placeholder animations generated");
 
     this.generateWeaponTexture();
