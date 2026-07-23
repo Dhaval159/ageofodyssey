@@ -1,5 +1,7 @@
 import Phaser from "phaser";
 import { Logger } from "../core/Logger";
+import { SceneTransitionManager } from "../core/SceneTransitionManager";
+import { GAME_CONFIG } from "../constants/GameConstants";
 
 /**
  * GameScene - The main gameplay scene where the game world is rendered
@@ -13,19 +15,18 @@ export default class GameScene extends Phaser.Scene {
     create(): void {
         const { width, height } = this.scale;
 
+        this.cameras.main.setBackgroundColor(GAME_CONFIG.BACKGROUND_COLOR);
         Logger.getInstance().log("GameScene started");
 
-        // Placeholder background
-        this.cameras.main.setBackgroundColor("#1a1a2e");
+        const transitionManager = SceneTransitionManager.getInstance();
+        transitionManager.initialize(this);
 
-        // Placeholder text
         const text = this.add.text(width / 2, height / 2, "Game World", {
             fontSize: "36px",
             color: "#ffffff",
         });
         text.setOrigin(0.5);
 
-        // Back to menu (temporary debug)
         const backText = this.add.text(width / 2, height / 2 + 60, "Back to Menu", {
             fontSize: "20px",
             color: "#aaaaaa",
@@ -35,7 +36,8 @@ export default class GameScene extends Phaser.Scene {
 
         backText.on("pointerover", () => backText.setColor("#ff4444"));
         backText.on("pointerout", () => backText.setColor("#aaaaaa"));
-        backText.on("pointerdown", () => this.scene.start("MainMenuScene"));
+        backText.on("pointerdown", () => {
+            transitionManager.transitionTo("MainMenuScene", { fadeDuration: 500 });
+        });
     }
 }
-

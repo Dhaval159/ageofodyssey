@@ -1,10 +1,41 @@
-// GameStateManager for centralized pause/resume and state management
+import { GameEvents } from "./GameEvents";
+
+/**
+ * Enumeration of all high-level game states.
+ * Add future states here before referencing them elsewhere.
+ */
+export enum GameState {
+  BOOTING = "BOOTING",
+  LOADING = "LOADING",
+  MAIN_MENU = "MAIN_MENU",
+  PLAYING = "PLAYING",
+  PAUSED = "PAUSED",
+  CUTSCENE = "CUTSCENE",
+  DIALOGUE = "DIALOGUE",
+  GAME_OVER = "GAME_OVER",
+  SETTINGS = "SETTINGS",
+  CREDITS = "CREDITS",
+}
+
+export interface IStateChangePayload {
+  oldState: GameState;
+  newState: GameState;
+}
+
+export interface ITransitionPayload {
+  from: string;
+  to: string;
+}
+
 export class GameStateManager {
   private static instance: GameStateManager;
-  private isPaused: boolean = false;
-  private listeners: Map<string, Array<(data: unknown) => void>> = new Map();
+  private currentState: GameState;
+  private listeners: Map<string, Array<(data: unknown) => void>>;
 
-  private constructor() { }
+  private constructor() {
+    this.currentState = GameState.BOOTING;
+    this.listeners = new Map<string, Array<(data: unknown) => void>>();
+  }
 
   public static getInstance(): GameStateManager {
     if (!GameStateManager.instance) {
@@ -13,13 +44,18 @@ export class GameStateManager {
     return GameStateManager.instance;
   }
 
-  public togglePause(): void {
-    this.isPaused = !this.isPaused;
-    this.emit("pauseToggle", this.isPaused);
+  public getState(): GameState {
+    return this.currentState;
   }
 
-  public isPausedState(): boolean {
-    return this.isPaused;
+  public setState(newState: GameState): void {
+    if (this.currentState === newState) return;
+
+    const oldState = this.currentState;
+    this.currentState = newState;
+
+    const payload: IStateChangePayload = { oldState, newState };
+    this.emit(GameEvents.STATE_CHANGED, payload);
   }
 
   public on(event: string, callback: (data: unknown) => void): void {
@@ -29,6 +65,15 @@ export class GameStateManager {
     this.listeners.get(event)!.push(callback);
   }
 
+  public off(event: string, callback: (data: unknown) => void): void {
+    if (!this.listeners.has(event)) return;
+    const callbacks = this.listeners.get(event)!;
+    const index = callbacks.indexOf(callback);
+    if (index !== -1) {
+      callbacks.splice(index, 1);
+    }
+  }
+
   public emit(event: string, data: unknown): void {
     const callbacks = this.listeners.get(event);
     if (callbacks) {
@@ -36,4 +81,3 @@ export class GameStateManager {
     }
   }
 }
-

@@ -1,10 +1,17 @@
-// Global Phaser Scene Manager for scene registration and transitions
+import Phaser from "phaser";
+import { Logger } from "./Logger";
+
+/**
+ * Centralized scene registry and transition manager.
+ * Tracks registered scenes and current scene state.
+ */
 export class SceneManager {
   private static instance: SceneManager;
-  private scenes: Map<string, () => Phaser.Scene>;
+  private scenes: Map<string, Phaser.Scene>;
+  private currentSceneKey: string | null = null;
 
   private constructor() {
-    this.scenes = new Map<string, () => Phaser.Scene>();
+    this.scenes = new Map<string, Phaser.Scene>();
   }
 
   public static getInstance(): SceneManager {
@@ -14,21 +21,20 @@ export class SceneManager {
     return SceneManager.instance;
   }
 
-  public register(sceneName: string, sceneFactory: () => Phaser.Scene): void {
-    this.scenes.set(sceneName, sceneFactory);
+  public register(scene: Phaser.Scene): void {
+    this.scenes.set(scene.scene.key, scene);
+    Logger.getInstance().log(`Scene registered: ${scene.scene.key}`);
   }
 
-  public getScene(sceneName: string): Phaser.Scene | undefined {
-    const factory = this.scenes.get(sceneName);
-    if (factory) {
-      return factory();
-    }
-    return undefined;
+  public getScene(key: string): Phaser.Scene | undefined {
+    return this.scenes.get(key);
   }
 
-  public transitionTo(_sceneName: string): Promise<void> {
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(), 100);
-    });
+  public setCurrentScene(key: string): void {
+    this.currentSceneKey = key;
+  }
+
+  public getCurrentSceneKey(): string | null {
+    return this.currentSceneKey;
   }
 }
