@@ -7,9 +7,13 @@ export class InvestigateState implements IEnemyState {
   private investigateTarget: { x: number; y: number } | null = null;
   private timer: number = 0;
   private readonly MAX_INVESTIGATE_TIME: number = 5;
+  private hasArrived: boolean = false;
+  private lookTimer: number = 0;
 
   public enter(ai: EnemyAI): void {
     this.timer = 0;
+    this.hasArrived = false;
+    this.lookTimer = 0;
 
     const playerPos = ai.getPlayerPosition();
     if (playerPos) {
@@ -33,12 +37,24 @@ export class InvestigateState implements IEnemyState {
     this.timer += dt;
 
     if (ai.canSeePlayer()) {
+      ai.stopLookingAround();
       ai.transitionTo(EnemyStateId.CHASE);
       return;
     }
 
     if (this.timer >= this.MAX_INVESTIGATE_TIME) {
+      ai.stopLookingAround();
       ai.transitionTo(EnemyStateId.RETURN_HOME);
+      return;
+    }
+
+    if (this.hasArrived) {
+      this.lookTimer -= dt;
+      ai.updateLookAround(dt);
+      if (this.lookTimer <= 0) {
+        ai.stopLookingAround();
+        ai.transitionTo(EnemyStateId.RETURN_HOME);
+      }
       return;
     }
 
@@ -48,17 +64,21 @@ export class InvestigateState implements IEnemyState {
       const dy = this.investigateTarget.y - pos.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (dist > 8) {
+      if (dist > 12) {
         ai.moveToward(this.investigateTarget, ai.getConfig().speed);
         ai.faceTarget(this.investigateTarget);
       } else {
         ai.stopMoving();
-        ai.transitionTo(EnemyStateId.RETURN_HOME);
+        this.hasArrived = true;
+        this.lookTimer = 0.8 + Math.random() * 1.2;
+        ai.faceTarget(this.investigateTarget);
+        ai.startLookingAround();
       }
     } else {
       ai.transitionTo(EnemyStateId.RETURN_HOME);
     }
   }
 
-  public exit(_ai: EnemyAI): void {}
+  public exit(_ai: EnemyAI): void {
+  }
 }

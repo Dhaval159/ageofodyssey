@@ -23,6 +23,12 @@ export interface EnemyDebugInfo {
   health: number;
   maxHealth: number;
   isAlive: boolean;
+  entityId: string;
+  patrolTarget: { x: number; y: number } | null;
+  homePosition: { x: number; y: number };
+  velocity: { x: number; y: number };
+  facingDir: { x: number; y: number };
+  isLookingAround: boolean;
 }
 
 export class EnemyManager {
@@ -354,16 +360,23 @@ export class EnemyManager {
     const info: EnemyDebugInfo[] = [];
     for (const enemy of this.enemies.values()) {
       const config = enemy.controller.getConfig();
+      const ai = enemy.controller.ai;
       info.push({
         x: enemy.x,
         y: enemy.y,
         visionRadius: config.visionRadius,
         aggroRadius: config.aggroRadius,
         attackRadius: config.attackRange,
-        state: enemy.controller.ai.getCurrentStateId() ?? "NONE",
+        state: ai.getCurrentStateId() ?? "NONE",
         health: enemy.controller.health.getCurrentHealth(),
         maxHealth: enemy.controller.health.getMaxHealth(),
         isAlive: enemy.controller.health.isAlive(),
+        entityId: enemy.getEntityId(),
+        patrolTarget: ai.getPatrolTarget(),
+        homePosition: ai.getHomePosition(),
+        velocity: ai.getVelocity(),
+        facingDir: ai.getFacingDirection(),
+        isLookingAround: ai.getIsLookingAround(),
       });
     }
     return info;

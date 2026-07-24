@@ -17,4 +17,5 @@ export const WOLF_CONFIG: IEnemyConfig = {
   patrolRadius: 150,
   patrolPauseMin: 1.5,
   patrolPauseMax: 4.0,
+  reactionTime: 0.25,
 };

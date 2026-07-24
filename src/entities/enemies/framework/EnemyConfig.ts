@@ -15,6 +15,7 @@ export interface IEnemyConfig {
   patrolRadius: number;
   patrolPauseMin: number;
   patrolPauseMax: number;
+  reactionTime: number;
 }
 
 export const DEFAULT_ENEMY_CONFIG: IEnemyConfig = {
@@ -34,4 +35,5 @@ export const DEFAULT_ENEMY_CONFIG: IEnemyConfig = {
   patrolRadius: 150,
   patrolPauseMin: 1.0,
   patrolPauseMax: 3.0,
+  reactionTime: 0.25,
 };

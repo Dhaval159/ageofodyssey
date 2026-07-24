@@ -16,6 +16,22 @@ export class EnemyAI {
   private hurtTimer: number = 0;
   private patrolTarget: { x: number; y: number } | null = null;
 
+  private lookTimer: number = 0;
+  private lookDirection: { x: number; y: number } = { x: 0, y: 1 };
+  private isLookingAround: boolean = false;
+
+  private stuckTimer: number = 0;
+  private stuckDirection: { x: number; y: number } = { x: 0, y: 0 };
+  private stuckAvoidTimer: number = 0;
+  private lastPosition: { x: number; y: number } = { x: 0, y: 0 };
+
+  private readonly MOVE_SMOOTHING: number = 14;
+  private readonly VELOCITY_DEAD_ZONE: number = 0.5;
+  private readonly STUCK_THRESHOLD: number = 0.5;
+  private readonly STUCK_TIME: number = 0.4;
+  private readonly AVOID_TIME: number = 0.3;
+  private readonly SLOW_RADIUS: number = 32;
+
   private idCounter: number = 0;
   public readonly id: string;
 
@@ -38,6 +54,7 @@ export class EnemyAI {
 
   public initialize(x: number, y: number, player: Phaser.GameObjects.GameObject): void {
     this.position = { x, y };
+    this.lastPosition = { x, y };
     this.homePosition = { x, y };
     this.playerRef = player;
   }
@@ -82,35 +99,116 @@ export class EnemyAI {
     return val;
   }
 
+  // --- Look-around system for natural idle/patrol behavior ---
+
+  public startLookingAround(): void {
+    this.isLookingAround = true;
+    this.lookTimer = 0.5 + Math.random() * 1.0;
+    const angle = Math.random() * Math.PI * 2;
+    this.lookDirection = {
+      x: Math.cos(angle),
+      y: Math.sin(angle),
+    };
+  }
+
+  public updateLookAround(dt: number): boolean {
+    if (!this.isLookingAround) return false;
+    this.lookTimer -= dt;
+    if (this.lookTimer <= 0) {
+      this.isLookingAround = false;
+      return false;
+    }
+    this.facingDirection = { ...this.lookDirection };
+    return true;
+  }
+
+  public isCurrentlyLookingAround(): boolean {
+    return this.isLookingAround;
+  }
+
+  public getIsLookingAround(): boolean {
+    return this.isLookingAround;
+  }
+
+  public stopLookingAround(): void {
+    this.isLookingAround = false;
+  }
+
+  // --- Main update ---
+
   public update(dt: number): void {
     this.stateMachine.update(this, dt);
     this.applyTargetVelocity(dt);
   }
 
   private applyTargetVelocity(dt: number): void {
-    const lerpFactor = 12 * dt;
-    this.velocity.x += (this.targetVelocity.x - this.velocity.x) * lerpFactor;
-    this.velocity.y += (this.targetVelocity.y - this.velocity.y) * lerpFactor;
+    const smoothFactor = 1 - Math.exp(-this.MOVE_SMOOTHING * dt);
+    this.velocity.x += (this.targetVelocity.x - this.velocity.x) * smoothFactor;
+    this.velocity.y += (this.targetVelocity.y - this.velocity.y) * smoothFactor;
 
-    if (Math.abs(this.velocity.x) < 0.5) this.velocity.x = 0;
-    if (Math.abs(this.velocity.y) < 0.5) this.velocity.y = 0;
-
-    this.position.x += this.velocity.x * dt;
-    this.position.y += this.velocity.y * dt;
+    if (Math.abs(this.velocity.x) < this.VELOCITY_DEAD_ZONE) this.velocity.x = 0;
+    if (Math.abs(this.velocity.y) < this.VELOCITY_DEAD_ZONE) this.velocity.y = 0;
 
     if (this.targetVelocity.x !== 0 || this.targetVelocity.y !== 0) {
-      this.facingDirection = {
-        x: this.targetVelocity.x,
-        y: this.targetVelocity.y,
-      };
       const len = Math.sqrt(
-        this.facingDirection.x ** 2 + this.facingDirection.y ** 2
+        this.targetVelocity.x ** 2 + this.targetVelocity.y ** 2
       );
       if (len > 0) {
-        this.facingDirection.x /= len;
-        this.facingDirection.y /= len;
+        this.facingDirection = {
+          x: this.targetVelocity.x / len,
+          y: this.targetVelocity.y / len,
+        };
       }
     }
+
+    this.detectStuck(dt);
+  }
+
+  // --- Stuck detection for basic obstacle avoidance ---
+
+  private detectStuck(dt: number): void {
+    const moveX = this.position.x - this.lastPosition.x;
+    const moveY = this.position.y - this.lastPosition.y;
+    const moved = Math.sqrt(moveX * moveX + moveY * moveY);
+    this.lastPosition = { ...this.position };
+
+    const isTryingToMove =
+      Math.abs(this.targetVelocity.x) > 1 || Math.abs(this.targetVelocity.y) > 1;
+
+    if (isTryingToMove && moved < this.STUCK_THRESHOLD * dt) {
+      this.stuckTimer += dt;
+    } else {
+      this.stuckTimer = 0;
+      this.stuckAvoidTimer = 0;
+    }
+
+    if (this.stuckTimer >= this.STUCK_TIME && this.stuckAvoidTimer <= 0) {
+      this.stuckAvoidTimer = this.AVOID_TIME;
+      const perpX = -this.targetVelocity.y;
+      const perpY = this.targetVelocity.x;
+      const pLen = Math.sqrt(perpX * perpX + perpY * perpY);
+      if (pLen > 0) {
+        const sign = Math.random() > 0.5 ? 1 : -1;
+        this.stuckDirection = {
+          x: (perpX / pLen) * sign,
+          y: (perpY / pLen) * sign,
+        };
+      } else {
+        const angle = Math.random() * Math.PI * 2;
+        this.stuckDirection = { x: Math.cos(angle), y: Math.sin(angle) };
+      }
+    }
+
+    if (this.stuckAvoidTimer > 0) {
+      this.stuckAvoidTimer -= dt;
+      const avoidSpeed = this.config.speed * 0.6;
+      this.velocity.x += (this.stuckDirection.x * avoidSpeed - this.velocity.x) * dt * 10;
+      this.velocity.y += (this.stuckDirection.y * avoidSpeed - this.velocity.y) * dt * 10;
+    }
+  }
+
+  public isStuck(): boolean {
+    return this.stuckAvoidTimer > 0;
   }
 
   // --- Movement controls called by states ---
@@ -119,11 +217,18 @@ export class EnemyAI {
     const dx = target.x - this.position.x;
     const dy = target.y - this.position.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist > 1) {
-      this.targetVelocity.x = (dx / dist) * speed;
-      this.targetVelocity.y = (dy / dist) * speed;
+    if (dist > 2) {
+      if (dist < this.SLOW_RADIUS) {
+        const speedFactor = dist / this.SLOW_RADIUS;
+        this.targetVelocity.x = (dx / dist) * speed * speedFactor;
+        this.targetVelocity.y = (dy / dist) * speed * speedFactor;
+      } else {
+        this.targetVelocity.x = (dx / dist) * speed;
+        this.targetVelocity.y = (dy / dist) * speed;
+      }
     } else {
-      this.stopMoving();
+      this.targetVelocity.x = 0;
+      this.targetVelocity.y = 0;
     }
   }
 
@@ -170,6 +275,12 @@ export class EnemyAI {
     if (!this.playerRef) return false;
     const dist = this.getDistanceToPlayer();
     return dist <= this.config.attackRange;
+  }
+
+  public isPlayerInAttackRangeHysteresis(): boolean {
+    if (!this.playerRef) return false;
+    const dist = this.getDistanceToPlayer();
+    return dist <= this.config.attackRange + 8;
   }
 
   public isPlayerInAggroRange(): boolean {
@@ -220,12 +331,18 @@ export class EnemyAI {
   public isAtHome(): boolean {
     const dx = this.position.x - this.homePosition.x;
     const dy = this.position.y - this.homePosition.y;
-    return Math.sqrt(dx * dx + dy * dy) < 16;
+    return Math.sqrt(dx * dx + dy * dy) < 20;
   }
 
   public getDistanceToHome(): number {
     const dx = this.position.x - this.homePosition.x;
     const dy = this.position.y - this.homePosition.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  public distanceBetween(a: { x: number; y: number }, b: { x: number; y: number }): number {
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
     return Math.sqrt(dx * dx + dy * dy);
   }
 

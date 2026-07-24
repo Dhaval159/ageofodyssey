@@ -5,10 +5,15 @@ import { EnemyStateId } from "./EnemyStateId";
 export class ChaseState implements IEnemyState {
   public readonly id = EnemyStateId.CHASE;
   private lostPlayerTimer: number = 0;
+  private reactionTimer: number = 0;
   private readonly LOST_PLAYER_TIMEOUT: number = 2;
+  private isReacting: boolean = false;
 
-  public enter(_ai: EnemyAI): void {
+  public enter(ai: EnemyAI): void {
     this.lostPlayerTimer = 0;
+    this.reactionTimer = 0;
+    const prevState = ai.getStateMachine().getPreviousStateId();
+    this.isReacting = prevState === EnemyStateId.ATTACK;
   }
 
   public update(ai: EnemyAI, dt: number): void {
@@ -22,7 +27,34 @@ export class ChaseState implements IEnemyState {
       return;
     }
 
-    if (ai.isPlayerInAttackRange()) {
+    const inRange = ai.isPlayerInAttackRange();
+    const inRangeHysteresis = ai.isPlayerInAttackRangeHysteresis();
+
+    if (inRange && !this.isReacting) {
+      this.isReacting = true;
+      this.reactionTimer = ai.getConfig().reactionTime;
+    }
+
+    if (this.isReacting) {
+      if (!inRangeHysteresis) {
+        this.isReacting = false;
+        this.reactionTimer = 0;
+      } else {
+        this.reactionTimer -= dt;
+        ai.moveToward(playerPos, ai.getConfig().chaseSpeed * 0.4);
+        ai.faceTarget(playerPos);
+        if (this.reactionTimer <= 0) {
+          this.isReacting = false;
+          ai.stopMoving();
+          ai.transitionTo(EnemyStateId.ATTACK);
+          return;
+        }
+        this.lostPlayerTimer = 0;
+        return;
+      }
+    }
+
+    if (inRange && !this.isReacting) {
       ai.stopMoving();
       ai.transitionTo(EnemyStateId.ATTACK);
       return;

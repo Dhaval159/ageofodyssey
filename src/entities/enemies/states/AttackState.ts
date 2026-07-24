@@ -4,90 +4,52 @@ import { EnemyStateId } from "./EnemyStateId";
 
 export class AttackState implements IEnemyState {
   public readonly id = EnemyStateId.ATTACK;
-  private attackTimer: number = 0;
-  private hasAttacked: boolean = false;
-  private cooldownTimer: number = 0;
-  private inCooldown: boolean = false;
-  private windUpPhase: boolean = true;
-  private readonly WIND_UP_DURATION: number = 0.15;
+  private phaseTimer: number = 0;
+  private readonly WIND_UP: number = 0.15;
+  private phase: 'windup' | 'cooldown' = 'windup';
 
   public enter(ai: EnemyAI): void {
-    this.attackTimer = 0;
-    this.hasAttacked = false;
-    this.cooldownTimer = 0;
-    this.inCooldown = false;
-    this.windUpPhase = true;
+    this.phaseTimer = 0;
+    this.phase = 'windup';
     ai.stopMoving();
   }
 
   public update(ai: EnemyAI, dt: number): void {
-    if (!ai.isPlayerInAttackRange()) {
-      this.resetState();
-
-      if (ai.canSeePlayer()) {
-        ai.transitionTo(EnemyStateId.CHASE);
-      } else {
-        ai.transitionTo(EnemyStateId.INVESTIGATE);
-      }
-      return;
-    }
-
     const playerPos = ai.getPlayerPosition();
     if (playerPos) {
       ai.faceTarget(playerPos);
     }
 
-    if (this.windUpPhase) {
-      this.attackTimer += dt;
-      if (this.attackTimer >= this.WIND_UP_DURATION) {
-        this.attackTimer = 0;
-        this.windUpPhase = false;
-        this.hasAttacked = true;
+    this.phaseTimer += dt;
+
+    if (this.phase === 'windup') {
+      if (this.phaseTimer >= this.WIND_UP) {
         this.performAttack(ai);
+        this.phase = 'cooldown';
+        this.phaseTimer = 0;
       }
       return;
     }
 
-    if (!this.hasAttacked) {
-      this.hasAttacked = true;
-      this.performAttack(ai);
-    }
-
-    if (!this.inCooldown) {
-      this.attackTimer += dt;
-      if (this.attackTimer >= ai.getConfig().attackDuration) {
-        this.inCooldown = true;
-        this.cooldownTimer = ai.getConfig().attackCooldown;
-      }
-    }
-
-    if (this.inCooldown) {
-      this.cooldownTimer -= dt;
-      if (this.cooldownTimer <= 0) {
-        this.resetState();
+    if (this.phase === 'cooldown') {
+      const remainingCooldown = ai.getConfig().attackCooldown - this.WIND_UP;
+      if (this.phaseTimer >= remainingCooldown) {
         ai.transitionTo(EnemyStateId.CHASE);
       }
+      return;
     }
-  }
-
-  private resetState(): void {
-    this.attackTimer = 0;
-    this.hasAttacked = false;
-    this.cooldownTimer = 0;
-    this.inCooldown = false;
-    this.windUpPhase = true;
   }
 
   private performAttack(ai: EnemyAI): void {
-    const config = ai.getConfig();
     const playerPos = ai.getPlayerPosition();
     if (!playerPos) return;
 
-    const dx = playerPos.x - ai.getPosition().x;
-    const dy = playerPos.y - ai.getPosition().y;
+    const pos = ai.getPosition();
+    const dx = playerPos.x - pos.x;
+    const dy = playerPos.y - pos.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    if (dist <= config.attackRange) {
+    if (dist <= ai.getConfig().attackRange + 10) {
       ai.requestAttack();
     }
   }

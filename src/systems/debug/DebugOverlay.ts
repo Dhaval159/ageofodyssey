@@ -9,6 +9,17 @@ import { EnemyManager } from "../../entities/enemies/framework/EnemyManager";
 import { Player } from "../../entities/player/Player";
 import { CombatState } from "../combat/CombatController";
 
+const STATE_COLORS: Record<string, number> = {
+  IDLE: 0x888888,
+  PATROL: 0x44aaff,
+  INVESTIGATE: 0xffaa44,
+  CHASE: 0xff4444,
+  ATTACK: 0xff0000,
+  HURT: 0xffff00,
+  DEAD: 0x333333,
+  RETURN_HOME: 0x44ff88,
+};
+
 export class DebugOverlay {
   private container: Phaser.GameObjects.Container;
   private fpsText: Phaser.GameObjects.Text;
@@ -103,9 +114,19 @@ export class DebugOverlay {
     this.deadzoneGraphics.setVisible(this.enabled);
     this.hitboxGraphics.setVisible(this.enabled);
     this.enemyDebugGraphics.setVisible(this.enabled);
+    if (!this.enabled) {
+      this.clearEnemyLabels();
+    }
     Logger.getInstance().log(
       `[DebugOverlay] Toggled ${this.enabled ? "ON" : "OFF"}`
     );
+  }
+
+  private clearEnemyLabels(): void {
+    for (const label of this.enemyLabels) {
+      label.destroy();
+    }
+    this.enemyLabels = [];
   }
 
   public update(time: number, delta: number): void {
@@ -285,27 +306,64 @@ export class DebugOverlay {
     this.enemyDebugGraphics.clear();
 
     const debugInfo = EnemyManager.getInstance().getDebugInfo();
+    const scene = this.enemyDebugGraphics.scene;
 
     for (const info of debugInfo) {
       if (!info.isAlive) continue;
 
-      // Vision radius - blue
-      this.enemyDebugGraphics.lineStyle(1, 0x4488ff, 0.3);
-      this.enemyDebugGraphics.strokeCircle(info.x, info.y, info.visionRadius);
+      const stateColor = STATE_COLORS[info.state] ?? 0xffffff;
 
-      // Aggro radius - yellow
-      this.enemyDebugGraphics.lineStyle(1, 0xffff44, 0.3);
-      this.enemyDebugGraphics.strokeCircle(info.x, info.y, info.aggroRadius);
+      // Vision radius - blue, faint
+      this.enemyDebugGraphics.lineStyle(1, 0x4488ff, 0.2);
+      this.enemyDebugGraphics.strokeCircle(info.x, info.y, info.visionRadius);
+      this.enemyDebugGraphics.fillStyle(0x4488ff, 0.03);
+      this.enemyDebugGraphics.fillCircle(info.x, info.y, info.visionRadius);
 
       // Attack radius - red
-      this.enemyDebugGraphics.lineStyle(1, 0xff4444, 0.5);
+      this.enemyDebugGraphics.lineStyle(1, 0xff4444, 0.4);
       this.enemyDebugGraphics.strokeCircle(info.x, info.y, info.attackRadius);
 
+      // Patrol target line (if patrolling)
+      if (info.patrolTarget) {
+        this.enemyDebugGraphics.lineStyle(1, 0x44aaff, 0.5);
+        this.enemyDebugGraphics.beginPath();
+        this.enemyDebugGraphics.moveTo(info.x, info.y);
+        this.enemyDebugGraphics.lineTo(info.patrolTarget.x, info.patrolTarget.y);
+        this.enemyDebugGraphics.strokePath();
+        this.enemyDebugGraphics.lineStyle(1, 0x44aaff, 0.7);
+        this.enemyDebugGraphics.strokeCircle(info.patrolTarget.x, info.patrolTarget.y, 4);
+      }
+
+      // Home position - small diamond
+      this.enemyDebugGraphics.lineStyle(1, 0x44ff88, 0.5);
+      const hx = info.homePosition.x;
+      const hy = info.homePosition.y;
+      this.enemyDebugGraphics.beginPath();
+      this.enemyDebugGraphics.moveTo(hx, hy - 5);
+      this.enemyDebugGraphics.lineTo(hx + 5, hy);
+      this.enemyDebugGraphics.lineTo(hx, hy + 5);
+      this.enemyDebugGraphics.lineTo(hx - 5, hy);
+      this.enemyDebugGraphics.closePath();
+      this.enemyDebugGraphics.strokePath();
+
+      // Facing direction line
+      const facingLen = 20;
+      this.enemyDebugGraphics.lineStyle(1, stateColor, 0.6);
+      this.enemyDebugGraphics.beginPath();
+      this.enemyDebugGraphics.moveTo(info.x, info.y);
+      this.enemyDebugGraphics.lineTo(
+        info.x + info.facingDir.x * facingLen,
+        info.y + info.facingDir.y * facingLen
+      );
+      this.enemyDebugGraphics.strokePath();
+
       // Health bar above enemy
-      const barW = 24;
+      const barW = 28;
       const barH = 3;
       const barX = info.x - barW / 2;
-      const barY = info.y - 20;
+      const barY = info.y - 24;
+      this.enemyDebugGraphics.fillStyle(0x000000, 0.6);
+      this.enemyDebugGraphics.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
       this.enemyDebugGraphics.fillStyle(0x333333, 0.7);
       this.enemyDebugGraphics.fillRect(barX, barY, barW, barH);
       const hpPct = info.maxHealth > 0 ? info.health / info.maxHealth : 0;
@@ -313,13 +371,63 @@ export class DebugOverlay {
       this.enemyDebugGraphics.fillStyle(hpColor, 0.9);
       this.enemyDebugGraphics.fillRect(barX, barY, barW * hpPct, barH);
 
-      // State label
-      this.enemyDebugGraphics.lineStyle(1, 0x00ff00, 0.6);
-      this.enemyDebugGraphics.strokeCircle(info.x, info.y, 4);
+      // State label text above enemy
+      if (scene) {
+        const labelText = `${info.state}${info.isLookingAround ? ' (looking)' : ''}`;
+        const hpText = `${info.health}/${info.maxHealth}`;
+
+        const textWidth = Math.max(labelText.length * 7, hpText.length * 6);
+        this.enemyDebugGraphics.fillStyle(0x000000, 0.6);
+        this.enemyDebugGraphics.fillRect(info.x - textWidth / 2 - 2, info.y - 44, textWidth + 4, 18);
+      }
+    }
+
+    // Draw text labels using scene text objects - we use a cached approach
+    // Since we can't create/destroy text objects every frame in graphics,
+    // we draw them via the scene's text system only when enabled
+    if (scene && scene.add) {
+      this.renderEnemyLabels(debugInfo);
+    }
+  }
+
+  // Temporary text labels that get cleared and recreated each frame
+  private enemyLabels: Phaser.GameObjects.Text[] = [];
+  private renderEnemyLabels(debugInfo: import("../../entities/enemies/framework/EnemyManager").EnemyDebugInfo[]): void {
+    for (const label of this.enemyLabels) {
+      label.destroy();
+    }
+    this.enemyLabels = [];
+
+    for (const info of debugInfo) {
+      if (!info.isAlive) continue;
+
+      const stateName = info.state;
+      const vel = info.velocity;
+      const speed = Math.round(Math.sqrt(vel.x * vel.x + vel.y * vel.y));
+
+      const lines = [
+        `${stateName}  HP:${info.health}/${info.maxHealth}`,
+        `vel:${speed}  ${info.isLookingAround ? '(looking)' : ''}`,
+      ];
+
+      const text = this.enemyDebugGraphics.scene.add.text(
+        info.x, info.y - 58, lines.join('\n'), {
+          fontSize: '10px',
+          fontFamily: 'monospace',
+          color: '#ffffff',
+          backgroundColor: '#00000088',
+          padding: { x: 3, y: 2 },
+          align: 'center',
+        }
+      );
+      text.setOrigin(0.5, 0);
+      text.setDepth(9997);
+      this.enemyLabels.push(text);
     }
   }
 
   public destroy(): void {
+    this.clearEnemyLabels();
     this.container.destroy();
     this.collisionGraphics.destroy();
     this.deadzoneGraphics.destroy();

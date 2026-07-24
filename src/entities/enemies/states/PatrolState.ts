@@ -6,17 +6,20 @@ export class PatrolState implements IEnemyState {
   public readonly id = EnemyStateId.PATROL;
   private patrolTimer: number = 0;
   private patrolDuration: number = 4;
-  private hasTarget: boolean = false;
+  private hasArrived: boolean = false;
+  private arrivedPauseTimer: number = 0;
+  private readonly ARRIVED_PAUSE: number = 0.5;
 
   public enter(ai: EnemyAI): void {
     this.patrolTimer = 0;
     this.patrolDuration = 3 + Math.random() * 4;
-    this.hasTarget = false;
+    this.hasArrived = false;
+    this.arrivedPauseTimer = 0;
 
     const home = ai.getHomePosition();
     const radius = ai.getConfig().patrolRadius;
     const angle = Math.random() * Math.PI * 2;
-    const dist = 30 + Math.random() * Math.max(radius - 30, 10);
+    const dist = 40 + Math.random() * Math.max(radius - 40, 10);
     const tx = home.x + Math.cos(angle) * dist;
     const ty = home.y + Math.sin(angle) * dist;
 
@@ -26,33 +29,48 @@ export class PatrolState implements IEnemyState {
   public update(ai: EnemyAI, dt: number): void {
     if (ai.canSeePlayer()) {
       ai.clearPatrolTarget();
+      ai.stopLookingAround();
       ai.transitionTo(EnemyStateId.CHASE);
       return;
     }
 
     if (ai.isPlayerInAggroRange()) {
       ai.clearPatrolTarget();
+      ai.stopLookingAround();
       ai.transitionTo(EnemyStateId.INVESTIGATE);
+      return;
+    }
+
+    if (this.hasArrived) {
+      this.arrivedPauseTimer -= dt;
+      if (!ai.updateLookAround(dt) && this.arrivedPauseTimer <= 0) {
+        ai.clearPatrolTarget();
+        ai.transitionTo(EnemyStateId.IDLE);
+      }
       return;
     }
 
     const target = ai.getPatrolTarget();
     if (target) {
-      const dx = target.x - ai.getPosition().x;
-      const dy = target.y - ai.getPosition().y;
+      const pos = ai.getPosition();
+      const dx = target.x - pos.x;
+      const dy = target.y - pos.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (dist > 8) {
+      if (dist > 12) {
         ai.moveToward(target, ai.getConfig().speed);
         ai.faceTarget(target);
       } else {
         ai.stopMoving();
-        this.hasTarget = true;
+        this.hasArrived = true;
+        this.arrivedPauseTimer = this.ARRIVED_PAUSE;
+        ai.faceTarget(target);
+        ai.startLookingAround();
       }
     }
 
     this.patrolTimer += dt;
-    if (this.patrolTimer >= this.patrolDuration || this.hasTarget) {
+    if (this.patrolTimer >= this.patrolDuration && !this.hasArrived) {
       ai.clearPatrolTarget();
       ai.transitionTo(EnemyStateId.IDLE);
     }
@@ -60,5 +78,6 @@ export class PatrolState implements IEnemyState {
 
   public exit(ai: EnemyAI): void {
     ai.clearPatrolTarget();
+    ai.stopLookingAround();
   }
 }
