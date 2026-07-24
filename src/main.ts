@@ -4,6 +4,7 @@ import PreloadScene from "./scenes/PreloadScene";
 import MainMenuScene from "./scenes/MainMenuScene";
 import GameScene from "./scenes/GameScene";
 import OpeningScene from "./scenes/OpeningScene";
+import CaveScene from "./scenes/CaveScene";
 import { GAME_CONFIG } from "./constants/GameConstants";
 import { Logger } from "./core/Logger";
 
@@ -26,7 +27,7 @@ const config: Phaser.Types.Core.GameConfig = {
             debug: GAME_CONFIG.DEBUG_MODE,
         },
     },
-    scene: [BootScene, PreloadScene, MainMenuScene, GameScene, OpeningScene],
+    scene: [BootScene, PreloadScene, MainMenuScene, GameScene, OpeningScene, CaveScene],
 };
 
 new Phaser.Game(config);

@@ -4,7 +4,14 @@ export type WorldObjectType =
   | "wall"
   | "obstacle"
   | "ground"
-  | "boundary";
+  | "boundary"
+  | "crate"
+  | "gate"
+  | "torch"
+  | "barrel"
+  | "pillar"
+  | "fence"
+  | "mat";
 
 export interface IWorldObject {
   readonly id: string;
