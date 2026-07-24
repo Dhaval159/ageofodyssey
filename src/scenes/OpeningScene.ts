@@ -1586,6 +1586,45 @@ export default class OpeningScene extends Phaser.Scene {
       this.hasReachedCave = true;
       this.objectiveManager?.completeObjective("enter_cave");
       this.checkpoints?.activateCheckpoint("cave_entrance");
+
+      GameStateManager.getInstance().setState(GameState.CUTSCENE);
+      this.playerControlEnabled = false;
+
+      const caveText = this.add.text(
+        GAME_CONFIG.WIDTH / 2,
+        GAME_CONFIG.HEIGHT / 2 - 40,
+        "The Mountain Pass",
+        {
+          fontSize: "28px",
+          color: "#ccaa66",
+          stroke: "#000000",
+          strokeThickness: 4,
+        }
+      );
+      caveText.setOrigin(0.5);
+      caveText.setScrollFactor(0);
+      caveText.setDepth(1000);
+      caveText.setAlpha(0);
+
+      this.tweens.add({
+        targets: caveText,
+        alpha: 1,
+        duration: 1500,
+        ease: "Power2",
+      });
+      this.tweens.add({
+        targets: caveText,
+        alpha: 0,
+        duration: 1000,
+        delay: 2500,
+        ease: "Power2",
+        onComplete: () => {
+          caveText.destroy();
+          SceneTransitionManager.getInstance().transitionTo("MountainPassScene", {
+            fadeDuration: 800,
+          });
+        },
+      });
     }
 
     if (this.player && px > CAVE_ENTRANCE_X - 200 && px < CAVE_ENTRANCE_X + 50 && !this.caveShakeTriggered) {

@@ -5,6 +5,7 @@ import MainMenuScene from "./scenes/MainMenuScene";
 import GameScene from "./scenes/GameScene";
 import OpeningScene from "./scenes/OpeningScene";
 import CaveScene from "./scenes/CaveScene";
+import MountainPassScene from "./scenes/MountainPassScene";
 import SandboxScene from "./scenes/SandboxScene";
 import { GAME_CONFIG } from "./constants/GameConstants";
 import { Logger } from "./core/Logger";
@@ -28,7 +29,7 @@ const config: Phaser.Types.Core.GameConfig = {
             debug: GAME_CONFIG.DEBUG_MODE,
         },
     },
-    scene: [BootScene, PreloadScene, MainMenuScene, GameScene, OpeningScene, CaveScene, SandboxScene],
+    scene: [BootScene, PreloadScene, MainMenuScene, GameScene, OpeningScene, MountainPassScene, CaveScene, SandboxScene],
 };
 
 new Phaser.Game(config);
