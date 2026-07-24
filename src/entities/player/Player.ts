@@ -42,6 +42,8 @@ export class Player extends Phaser.GameObjects.Container {
   private knockbackVelocity: { x: number; y: number } = { x: 0, y: 0 };
   private knockbackDecay: number = 0;
 
+  private prevStateId: PlayerStateId | null = null;
+
   constructor(
     scene: Phaser.Scene,
     x: number,
@@ -142,22 +144,25 @@ export class Player extends Phaser.GameObjects.Container {
     // Player state machine handling
     const playerStateId = this.controller.getStateMachine().getCurrentStateId();
 
-    // Combat: request attack when entering ATTACKING or HEAVY_ATTACKING state
-    if (playerStateId === PlayerStateId.ATTACKING) {
-      const dir = this.controller.getFacingDirection();
-      this.combatController.requestAttack(
-        AttackType.LIGHT,
-        dir,
-        { x: this.x, y: this.y }
-      );
-    } else if (playerStateId === PlayerStateId.HEAVY_ATTACKING) {
-      const dir = this.controller.getFacingDirection();
-      this.combatController.requestAttack(
-        AttackType.HEAVY,
-        dir,
-        { x: this.x, y: this.y }
-      );
+    // Combat: request attack only once when entering ATTACKING or HEAVY_ATTACKING state
+    if (playerStateId !== this.prevStateId) {
+      if (playerStateId === PlayerStateId.ATTACKING) {
+        const dir = this.controller.getFacingDirection();
+        this.combatController.requestAttack(
+          AttackType.LIGHT,
+          dir,
+          { x: this.x, y: this.y }
+        );
+      } else if (playerStateId === PlayerStateId.HEAVY_ATTACKING) {
+        const dir = this.controller.getFacingDirection();
+        this.combatController.requestAttack(
+          AttackType.HEAVY,
+          dir,
+          { x: this.x, y: this.y }
+        );
+      }
     }
+    this.prevStateId = playerStateId;
 
     // Update combat controller each frame
     const dir = this.controller.getFacingDirection();

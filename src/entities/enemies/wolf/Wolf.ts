@@ -68,7 +68,7 @@ export class Wolf extends Enemy {
 
     this.initialize(player, states, EnemyStateId.IDLE);
 
-    const weapon = WeaponManager.getInstance().createWeapon(scene, "placeholder_sword");
+    const weapon = WeaponManager.getInstance().createWeapon(scene, "wolf_claw");
     if (weapon) {
       const combatMgr = CombatManager.getInstance();
       const combatController = new CombatController(

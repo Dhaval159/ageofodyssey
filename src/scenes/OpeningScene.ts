@@ -1687,14 +1687,19 @@ export default class OpeningScene extends Phaser.Scene {
       return;
     }
 
-    if (this.player && this.playerControlEnabled) {
-      this.player.update(time, delta);
-    }
+    const enemyMgr = EnemyManager.getInstance();
+    enemyMgr.tickHitPause(delta);
 
-    EnemyManager.getInstance().update(time, delta);
-    EnemyManager.getInstance().checkPlayerHitboxCollisions(this);
-    if (this.player) {
-      EnemyManager.getInstance().checkEnemyHitboxCollisions(this.player);
+    if (!enemyMgr.isHitPaused()) {
+      if (this.player && this.playerControlEnabled) {
+        this.player.update(time, delta);
+      }
+
+      enemyMgr.update(time, delta);
+      enemyMgr.checkPlayerHitboxCollisions(this);
+      if (this.player) {
+        enemyMgr.checkEnemyHitboxCollisions(this.player);
+      }
     }
 
     this.updateChapterObjectives();

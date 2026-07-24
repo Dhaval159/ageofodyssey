@@ -147,32 +147,53 @@ export class DebugOverlay {
 
       const combatCtrl = this.player.getCombatController();
       const combatState = combatCtrl ? combatCtrl.getState() : "?";
+      const invulnMs = this.player["invulnerabilityTimer"] ? Math.round(this.player["invulnerabilityTimer"] * 1000) : 0;
 
       info += `Player: (${px.toFixed(1)}, ${py.toFixed(1)})`;
       info += `\nHP: ${playerHp}/${playerMaxHp} | State: ${playerState}`;
       info += `\nCombat: ${combatState}`;
 
-      if (combatCtrl && combatCtrl.getState() !== CombatState.IDLE) {
-        info += ` (${combatCtrl.getCurrentAttackType()})`;
+      if (combatCtrl) {
+        if (combatCtrl.getState() !== CombatState.IDLE) {
+          info += ` (${combatCtrl.getCurrentAttackType()})`;
+        }
+        const cd = combatCtrl.getRemainingCooldown();
+        info += ` | CD: ${(cd * 1000).toFixed(0)}ms`;
+        const wu = combatCtrl.getWindUpRemaining();
+        if (wu > 0) {
+          info += ` | WindUp: ${(wu * 1000).toFixed(0)}ms`;
+        }
+      }
+
+      if (invulnMs > 0) {
+        info += `\nInvuln: ${invulnMs}ms`;
       }
     } else {
       info += "Player: N/A";
     }
 
-    const enemies = EnemyManager.getInstance().getAllEnemies();
-    info += `\nEnemies: ${enemies.length}`;
+    const enemyMgr = EnemyManager.getInstance();
+    info += `\nHitPause: ${enemyMgr.isHitPaused() ? Math.round(enemyMgr["hitPauseTimer"]) + "ms" : "No"}`;
+
+    const enemies = enemyMgr.getAllEnemies();
+    info += `\nEnemies: ${enemies.length} (alive: ${enemyMgr.getAliveCount()})`;
 
     for (const enemy of enemies) {
       const state = enemy.controller.ai.getCurrentStateId() ?? "?";
       const hp = enemy.controller.health.getCurrentHealth();
       const maxHp = enemy.controller.health.getMaxHealth();
       const shortId = enemy.getEntityId().slice(-8);
-      const combatState = enemy.combatController ? enemy.combatController.getState() : "N/A";
+      const cc = enemy.combatController;
+      const combatState = cc ? cc.getState() : "N/A";
+      const cd = cc ? cc.getRemainingCooldown() : 0;
+      const wu = cc ? cc.getWindUpRemaining() : 0;
       info += `\n  [${shortId}] ${state} HP:${hp}/${maxHp} Cbt:${combatState}`;
+      if (cd > 0) info += ` CD:${(cd * 1000).toFixed(0)}ms`;
+      if (wu > 0) info += ` WU:${(wu * 1000).toFixed(0)}ms`;
     }
 
-    const hitboxCount = CombatManager.getInstance().getHitboxManager().getActiveHitboxCount();
-    info += `\nActive Hitboxes: ${hitboxCount}`;
+    const hbCount = CombatManager.getInstance().getHitboxManager().getActiveHitboxCount();
+    info += `\nActive Hitboxes: ${hbCount}`;
 
     if (this.cameraManager && this.cameraManager.isActive()) {
       const view = this.cameraManager.getCameraView();
@@ -234,11 +255,14 @@ export class DebugOverlay {
     this.hitboxGraphics.clear();
 
     const combatManager = CombatManager.getInstance();
-    const hitboxes = combatManager.getHitboxManager().getHitboxesForDebug();
+    const hbMgr = combatManager.getHitboxManager();
+    const hitboxes = hbMgr.getHitboxesForDebug();
+    const scene = this.hitboxGraphics.scene;
 
     for (const hb of hitboxes) {
-      this.hitboxGraphics.lineStyle(2, 0xff4444, 0.9);
-      this.hitboxGraphics.fillStyle(0xff4444, 0.2);
+      const color = hb.ownerId === "player" ? 0x44ff44 : 0xff4444;
+      this.hitboxGraphics.lineStyle(2, color, 0.9);
+      this.hitboxGraphics.fillStyle(color, 0.15);
 
       if (hb.shape === HitboxShape.RECTANGLE && hb.width && hb.height) {
         const hw = hb.width / 2;
@@ -248,6 +272,11 @@ export class DebugOverlay {
       } else if (hb.shape === HitboxShape.CIRCLE && hb.radius) {
         this.hitboxGraphics.fillCircle(hb.x, hb.y, hb.radius);
         this.hitboxGraphics.strokeCircle(hb.x, hb.y, hb.radius);
+      }
+
+      if (scene && scene.add) {
+        this.hitboxGraphics.fillStyle(0x000000, 0.6);
+        this.hitboxGraphics.fillRect(hb.x - 10, hb.y - 16, 20, 10);
       }
     }
   }

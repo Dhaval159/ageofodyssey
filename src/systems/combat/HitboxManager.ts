@@ -18,6 +18,7 @@ export interface HitboxVisual {
   height?: number;
   radius?: number;
   active: boolean;
+  ownerId: string;
 }
 
 export class HitboxManager {
@@ -102,6 +103,7 @@ export class HitboxManager {
         height: hb.shape.height,
         radius: hb.shape.radius,
         active: hb.lifetime > 0,
+        ownerId: hb.ownerId,
       });
     }
     return visuals;

@@ -11,6 +11,7 @@ import { CombatManager } from "../../../systems/combat/CombatManager";
 import { CombatController } from "../../../systems/combat/CombatController";
 import { WeaponManager } from "../../../systems/combat/WeaponManager";
 import { Logger } from "../../../core/Logger";
+import { HitboxShape } from "../../../data/AttackData";
 
 export interface EnemyDebugInfo {
   x: number;
@@ -28,6 +29,7 @@ export class EnemyManager {
   private static instance: EnemyManager;
   private enemies: Map<string, Enemy> = new Map();
   private initialized: boolean = false;
+  private hitPauseTimer: number = 0;
 
   private constructor() {}
 
@@ -173,29 +175,22 @@ export class EnemyManager {
         if (hb.hitEntities.has(enemyId)) continue;
         if (!enemy.isAlive()) continue;
 
-        const ex = enemy.x;
-        const ey = enemy.y;
-        const hx = hb.shape.x;
-        const hy = hb.shape.y;
-        const dx = ex - hx;
-        const dy = ey - hy;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const hitRadius = hb.shape.radius ?? Math.max(hb.shape.width ?? 16, hb.shape.height ?? 16) / 2;
-
-        if (dist < hitRadius + 16) {
+        const hit = this.checkHitboxEnemyCollision(hb, enemy);
+        if (hit) {
           hb.hitEntities.add(enemyId);
           const damage = enemy.takeDamage(hb.damage);
           if (damage > 0) {
             Logger.getInstance().log(`[Combat] Player hit ${enemyId} for ${damage} damage`);
 
             if (scene) {
-              scene.cameras.main.shake(80, 0.003);
-              scene.cameras.main.flash(80, 255, 255, 255);
+              this.triggerHitPause();
+              scene.cameras.main.shake(100, 0.005);
+              scene.cameras.main.flash(120, 255, 255, 255);
             }
 
             enemy.applyKnockback(
-              { x: enemy.x - hx, y: enemy.y - hy },
-              150
+              { x: enemy.x - hb.shape.x, y: enemy.y - hb.shape.y },
+              200
             );
 
             this.showEnemyDamagePopup(enemy, damage);
@@ -247,25 +242,95 @@ export class EnemyManager {
 
       const px = (player as unknown as { x: number; y: number }).x ?? 0;
       const py = (player as unknown as { x: number; y: number }).y ?? 0;
-      const hx = hb.shape.x;
-      const hy = hb.shape.y;
-      const dx = px - hx;
-      const dy = py - hy;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const hitRadius = hb.shape.radius ?? Math.max(hb.shape.width ?? 16, hb.shape.height ?? 16) / 2;
 
-      if (dist < hitRadius + 16) {
+      const hit = this.checkHitboxVsPoint(hb, px, py);
+      if (hit) {
         hb.hitEntities.add(playerId);
         Logger.getInstance().log(`[Combat] Enemy hit player for ${hb.damage} damage`);
 
         if (p.takeDamage) {
           const enemyPos = this.getHitboxOwnerPosition(hb.ownerId);
-          p.takeDamage(hb.damage, enemyPos ?? { x: hx, y: hy });
+          p.takeDamage(hb.damage, enemyPos ?? { x: hb.shape.x, y: hb.shape.y });
         } else if (p.healthComponent && p.healthComponent.isAlive()) {
           p.healthComponent.takeDamage(hb.damage);
         }
       }
     }
+  }
+
+  public triggerHitPause(): void {
+    this.hitPauseTimer = 60;
+  }
+
+  public isHitPaused(): boolean {
+    return this.hitPauseTimer > 0;
+  }
+
+  public tickHitPause(delta: number): void {
+    if (this.hitPauseTimer > 0) {
+      this.hitPauseTimer = Math.max(0, this.hitPauseTimer - delta);
+    }
+  }
+
+  private checkHitboxEnemyCollision(
+    hb: { shape: { x: number; y: number; width?: number; height?: number; radius?: number; shape?: HitboxShape }; ownerId: string },
+    enemy: Enemy
+  ): boolean {
+    const ex = enemy.x;
+    const ey = enemy.y;
+    const enemyW = 32;
+    const enemyH = 32;
+
+    if (hb.shape.shape === HitboxShape.CIRCLE || hb.shape.radius !== undefined) {
+      const radius = hb.shape.radius ?? Math.max(hb.shape.width ?? 16, hb.shape.height ?? 16) / 2;
+      const dx = ex - hb.shape.x;
+      const dy = ey - hb.shape.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      return dist < radius + Math.max(enemyW, enemyH) / 2;
+    }
+
+    const hw = (hb.shape.width ?? 32) / 2;
+    const hh = (hb.shape.height ?? 32) / 2;
+    return (
+      ex < hb.shape.x + hw + enemyW / 2 &&
+      ex > hb.shape.x - hw - enemyW / 2 &&
+      ey < hb.shape.y + hh + enemyH / 2 &&
+      ey > hb.shape.y - hh - enemyH / 2
+    );
+  }
+
+  private checkHitboxVsPoint(
+    hb: { shape: { x: number; y: number; width?: number; height?: number; radius?: number; shape?: HitboxShape } },
+    px: number,
+    py: number
+  ): boolean {
+    if (hb.shape.shape === HitboxShape.CIRCLE || hb.shape.radius !== undefined) {
+      const radius = hb.shape.radius ?? Math.max(hb.shape.width ?? 16, hb.shape.height ?? 16) / 2;
+      const dx = px - hb.shape.x;
+      const dy = py - hb.shape.y;
+      return dx * dx + dy * dy < radius * radius;
+    }
+
+    const hw = (hb.shape.width ?? 32) / 2;
+    const hh = (hb.shape.height ?? 32) / 2;
+    return (
+      px >= hb.shape.x - hw &&
+      px <= hb.shape.x + hw &&
+      py >= hb.shape.y - hh &&
+      py <= hb.shape.y + hh
+    );
+  }
+
+  public getEnemyCount(): number {
+    return this.enemies.size;
+  }
+
+  public getAliveCount(): number {
+    let count = 0;
+    for (const enemy of this.enemies.values()) {
+      if (enemy.isAlive()) count++;
+    }
+    return count;
   }
 
   private getHitboxOwnerPosition(ownerId: string): { x: number; y: number } | null {

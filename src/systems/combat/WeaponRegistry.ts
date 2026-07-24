@@ -34,8 +34,9 @@ export class WeaponRegistry {
           type: AttackType.LIGHT,
           damage: 15,
           range: 28,
-          duration: 0.3,
+          duration: 0.25,
           cooldown: 0.5,
+          windUp: 0.06,
           hitbox: {
             shape: HitboxShape.RECTANGLE,
             width: 28,
@@ -48,13 +49,42 @@ export class WeaponRegistry {
           type: AttackType.HEAVY,
           damage: 25,
           range: 32,
-          duration: 0.6,
+          duration: 0.5,
           cooldown: 0.4,
+          windUp: 0.08,
           hitbox: {
             shape: HitboxShape.RECTANGLE,
             width: 32,
             height: 20,
             offsetX: 20,
+            offsetY: 0,
+          },
+        },
+      },
+    });
+  }
+
+  public static registerWolfClaw(): void {
+    WeaponRegistry.register("wolf_claw", {
+      name: "Wolf Claw",
+      key: "wolf_claw",
+      baseDamage: 8,
+      range: 24,
+      attackDuration: 0.5,
+      cooldownDuration: 1.2,
+      attacks: {
+        [AttackType.LIGHT]: {
+          type: AttackType.LIGHT,
+          damage: 8,
+          range: 24,
+          duration: 0.5,
+          cooldown: 1.2,
+          windUp: 0.15,
+          hitbox: {
+            shape: HitboxShape.RECTANGLE,
+            width: 24,
+            height: 20,
+            offsetX: 14,
             offsetY: 0,
           },
         },

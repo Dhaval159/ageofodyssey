@@ -152,14 +152,19 @@ export default class GameScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     InputManager.getInstance().update();
 
-    if (this.player) {
-      this.player.update(time, delta);
-    }
+    const enemyMgr = EnemyManager.getInstance();
+    enemyMgr.tickHitPause(delta);
 
-    EnemyManager.getInstance().update(time, delta);
-    EnemyManager.getInstance().checkPlayerHitboxCollisions(this);
-    if (this.player) {
-      EnemyManager.getInstance().checkEnemyHitboxCollisions(this.player);
+    if (!enemyMgr.isHitPaused()) {
+      if (this.player) {
+        this.player.update(time, delta);
+      }
+
+      enemyMgr.update(time, delta);
+      enemyMgr.checkPlayerHitboxCollisions(this);
+      if (this.player) {
+        enemyMgr.checkEnemyHitboxCollisions(this.player);
+      }
     }
 
     if (this.cameraManager) {

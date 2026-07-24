@@ -26,6 +26,7 @@ export interface AttackDef {
   hitbox: HitboxDef;
   animationSpeed?: number;
   knockback?: number;
+  windUp?: number;
 }
 
 export interface AttackRequest {

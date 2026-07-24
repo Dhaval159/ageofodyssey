@@ -35,6 +35,7 @@ export default class BootScene extends Phaser.Scene {
 
     this.generateWeaponTexture();
     WeaponRegistry.registerDefaultSword();
+    WeaponRegistry.registerWolfClaw();
     Logger.getInstance().log("Weapon textures & registry initialized");
 
     Logger.getInstance().log(

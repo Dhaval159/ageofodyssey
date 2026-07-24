@@ -15,6 +15,7 @@ export class CombatController {
   private state: CombatState = CombatState.IDLE;
   private currentAttackType: AttackType = AttackType.LIGHT;
   private stateTimer: number = 0;
+  private windUpRemaining: number = 0;
   private activeHitboxId: string | null = null;
   private attackQueue: AttackType[] = [];
   private comboStep: number = 0;
@@ -59,12 +60,15 @@ export class CombatController {
   ): void {
     this.state = CombatState.ATTACKING;
     this.currentAttackType = type;
-    this.stateTimer = def.duration;
+    this.stateTimer = def.duration + (def.windUp ?? 0);
+    this.windUpRemaining = def.windUp ?? 0;
     this.comboStep++;
 
     this.weapon.startSwing(direction.x, direction.y, position.x, position.y);
 
-    this.createHitbox(def, position, direction);
+    if (this.windUpRemaining <= 0) {
+      this.createHitbox(def, position, direction);
+    }
   }
 
   private createHitbox(
@@ -110,6 +114,15 @@ export class CombatController {
 
     switch (this.state) {
       case CombatState.ATTACKING:
+        if (this.windUpRemaining > 0) {
+          this.windUpRemaining -= dt;
+          if (this.windUpRemaining <= 0) {
+            const def = this.weapon.getAttackDef(this.currentAttackType);
+            if (def) {
+              this.createHitbox(def, position, direction);
+            }
+          }
+        }
         this.stateTimer -= dt;
         if (this.stateTimer <= 0) {
           this.endAttack();
@@ -159,6 +172,20 @@ export class CombatController {
 
   public isIdle(): boolean {
     return this.state === CombatState.IDLE;
+  }
+
+  public getRemainingCooldown(): number {
+    if (this.state === CombatState.COOLDOWN) return this.stateTimer;
+    if (this.state === CombatState.ATTACKING) return this.stateTimer + (this.weapon.getAttackDef(this.currentAttackType)?.cooldown ?? 0);
+    return 0;
+  }
+
+  public getWindUpRemaining(): number {
+    return this.windUpRemaining;
+  }
+
+  public getStateTimer(): number {
+    return this.stateTimer;
   }
 
   public getState(): CombatState {
