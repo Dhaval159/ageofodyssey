@@ -58,6 +58,15 @@ export class HitboxManager {
       hb.lifetime -= dt;
       if (hb.lifetime <= 0) {
         expired.push(id);
+      } else {
+        // Report active hitbox for collision detection
+        hits.push({
+          hitboxId: id,
+          ownerId: hb.ownerId,
+          damage: hb.damage,
+          x: hb.shape.x,
+          y: hb.shape.y,
+        });
       }
     }
 

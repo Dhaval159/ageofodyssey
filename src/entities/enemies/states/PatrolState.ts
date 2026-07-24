@@ -8,7 +8,8 @@ export class PatrolState implements IEnemyState {
   private patrolDuration: number = 4;
   private hasArrived: boolean = false;
   private arrivedPauseTimer: number = 0;
-  private readonly ARRIVED_PAUSE: number = 0.5;
+  private readonly ARRIVED_PAUSE: number = 0.8;
+  private readonly ARRIVAL_THRESHOLD: number = 8;
 
   public enter(ai: EnemyAI): void {
     this.patrolTimer = 0;
@@ -57,7 +58,7 @@ export class PatrolState implements IEnemyState {
       const dy = target.y - pos.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (dist > 12) {
+      if (dist > this.ARRIVAL_THRESHOLD) {
         ai.moveToward(target, ai.getConfig().speed);
         ai.faceTarget(target);
       } else {

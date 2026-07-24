@@ -5,12 +5,14 @@ import { EnemyStateId } from "./EnemyStateId";
 export class AttackState implements IEnemyState {
   public readonly id = EnemyStateId.ATTACK;
   private phaseTimer: number = 0;
-  private readonly WIND_UP: number = 0.15;
+  private readonly WIND_UP: number = 0.2;
+  private attackPerformed: boolean = false;
   private phase: 'windup' | 'cooldown' = 'windup';
 
   public enter(ai: EnemyAI): void {
     this.phaseTimer = 0;
     this.phase = 'windup';
+    this.attackPerformed = false;
     ai.stopMoving();
   }
 
@@ -25,6 +27,7 @@ export class AttackState implements IEnemyState {
     if (this.phase === 'windup') {
       if (this.phaseTimer >= this.WIND_UP) {
         this.performAttack(ai);
+        this.attackPerformed = true;
         this.phase = 'cooldown';
         this.phaseTimer = 0;
       }
@@ -49,7 +52,8 @@ export class AttackState implements IEnemyState {
     const dy = playerPos.y - pos.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    if (dist <= ai.getConfig().attackRange + 10) {
+    // Only attack if player is within range with small tolerance
+    if (dist <= ai.getConfig().attackRange + 8) {
       ai.requestAttack();
     }
   }
