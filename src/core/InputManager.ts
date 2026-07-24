@@ -52,14 +52,15 @@ export class InputManager {
     if (!this.scene) return;
 
     for (const [action, state] of this.states) {
-      state.resetFrameState();
+      const wasHeld = state.isHeld();
       const active = this.evaluateAction(action);
+
       state.setPressed(active);
       state.setHeld(active);
-      state.setReleased(false);
+      state.setJustPressed(active && !wasHeld);
+      state.setReleased(!active && wasHeld);
 
-      if (active) {
-        state.setJustPressed(true);
+      if (active && !wasHeld) {
         this.emitActionCallbacks(action, true);
       }
     }

@@ -64,7 +64,7 @@ export default class MainMenuScene extends Phaser.Scene {
         label: "New Game",
         onClick: () => {
           Logger.getInstance().log("[MainMenu] New Game clicked");
-          SceneTransitionManager.getInstance().transitionTo("GameScene", { fadeDuration: 500 });
+          SceneTransitionManager.getInstance().transitionTo("OpeningScene", { fadeDuration: 500 });
         },
       },
       {
