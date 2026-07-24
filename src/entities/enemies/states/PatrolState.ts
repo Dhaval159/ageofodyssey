@@ -10,13 +10,13 @@ export class PatrolState implements IEnemyState {
 
   public enter(ai: EnemyAI): void {
     this.patrolTimer = 0;
-    this.patrolDuration = 2 + Math.random() * 3;
+    this.patrolDuration = 3 + Math.random() * 4;
     this.hasTarget = false;
 
     const home = ai.getHomePosition();
     const radius = ai.getConfig().patrolRadius;
     const angle = Math.random() * Math.PI * 2;
-    const dist = Math.random() * radius;
+    const dist = 30 + Math.random() * Math.max(radius - 30, 10);
     const tx = home.x + Math.cos(angle) * dist;
     const ty = home.y + Math.sin(angle) * dist;
 

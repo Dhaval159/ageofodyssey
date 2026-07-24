@@ -5,7 +5,7 @@ import { EnemyStateId } from "./EnemyStateId";
 export class ChaseState implements IEnemyState {
   public readonly id = EnemyStateId.CHASE;
   private lostPlayerTimer: number = 0;
-  private readonly LOST_PLAYER_TIMEOUT: number = 3;
+  private readonly LOST_PLAYER_TIMEOUT: number = 2;
 
   public enter(_ai: EnemyAI): void {
     this.lostPlayerTimer = 0;
@@ -43,6 +43,5 @@ export class ChaseState implements IEnemyState {
   }
 
   public exit(_ai: EnemyAI): void {
-    // No cleanup needed
   }
 }

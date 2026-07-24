@@ -20,6 +20,7 @@ import { AnimationManager } from "../../../systems/animation/AnimationManager";
 import { CombatManager } from "../../../systems/combat/CombatManager";
 import { CombatController } from "../../../systems/combat/CombatController";
 import { WeaponManager } from "../../../systems/combat/WeaponManager";
+import { EnemyManager } from "../framework/EnemyManager";
 
 export class Wolf extends Enemy {
   constructor(
@@ -76,6 +77,7 @@ export class Wolf extends Enemy {
         this.getEntityId()
       );
       combatMgr.registerController(this.getEntityId(), combatController);
+      this.combatController = combatController;
     }
 
     controller.health.setOnDamage((_amount: number) => {
@@ -88,5 +90,7 @@ export class Wolf extends Enemy {
     controller.health.setOnDeath(() => {
       controller.ai.transitionTo(EnemyStateId.DEAD);
     });
+
+    EnemyManager.getInstance().addEnemy(this);
   }
 }

@@ -157,7 +157,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     EnemyManager.getInstance().update(time, delta);
-    EnemyManager.getInstance().checkPlayerHitboxCollisions();
+    EnemyManager.getInstance().checkPlayerHitboxCollisions(this);
     if (this.player) {
       EnemyManager.getInstance().checkEnemyHitboxCollisions(this.player);
     }

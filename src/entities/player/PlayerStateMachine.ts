@@ -239,10 +239,26 @@ export class BlockingState implements IPlayerState {
 
 export class HurtState implements IPlayerState {
   public id = PlayerStateId.HURT;
-  public enter(_controller: PlayerController): void {}
-  public update(controller: PlayerController, _dt: number): void {
-    // Placeholder transitions back to Idle
-    controller.getStateMachine().transitionTo(PlayerStateId.IDLE);
+  private timer: number = 0;
+  private readonly DURATION: number = 0.3;
+
+  public enter(_controller: PlayerController): void {
+    this.timer = this.DURATION;
+  }
+  public update(controller: PlayerController, dt: number): void {
+    this.timer -= dt;
+    if (this.timer <= 0) {
+      const input = controller.getCurrentInput();
+      if (input.moveVector.x !== 0 || input.moveVector.y !== 0) {
+        if (input.isRunning) {
+          controller.getStateMachine().transitionTo(PlayerStateId.RUNNING);
+        } else {
+          controller.getStateMachine().transitionTo(PlayerStateId.WALKING);
+        }
+      } else {
+        controller.getStateMachine().transitionTo(PlayerStateId.IDLE);
+      }
+    }
   }
   public exit(_controller: PlayerController): void {}
 }

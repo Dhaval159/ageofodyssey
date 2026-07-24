@@ -25,17 +25,17 @@ export class WeaponRegistry {
     WeaponRegistry.register("placeholder_sword", {
       name: "Placeholder Sword",
       key: "placeholder_weapon_sword",
-      baseDamage: 10,
+      baseDamage: 15,
       range: 28,
       attackDuration: 0.3,
-      cooldownDuration: 0.15,
+      cooldownDuration: 0.5,
       attacks: {
         [AttackType.LIGHT]: {
           type: AttackType.LIGHT,
-          damage: 10,
+          damage: 15,
           range: 28,
           duration: 0.3,
-          cooldown: 0.15,
+          cooldown: 0.5,
           hitbox: {
             shape: HitboxShape.RECTANGLE,
             width: 28,

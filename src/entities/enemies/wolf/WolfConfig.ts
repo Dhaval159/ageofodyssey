@@ -6,7 +6,7 @@ export const WOLF_CONFIG: IEnemyConfig = {
   damage: 8,
   attackCooldown: 1.2,
   attackDuration: 0.5,
-  attackRange: 35,
+  attackRange: 45,
   visionRadius: 200,
   aggroRadius: 280,
   speed: 70,

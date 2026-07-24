@@ -6,6 +6,8 @@ import { CameraManager } from "../camera/CameraManager";
 import { CombatManager } from "../combat/CombatManager";
 import { HitboxShape } from "../../data/AttackData";
 import { EnemyManager } from "../../entities/enemies/framework/EnemyManager";
+import { Player } from "../../entities/player/Player";
+import { CombatState } from "../combat/CombatController";
 
 export class DebugOverlay {
   private container: Phaser.GameObjects.Container;
@@ -17,7 +19,7 @@ export class DebugOverlay {
   private enemyDebugGraphics: Phaser.GameObjects.Graphics;
   private enabled: boolean = false;
   private cameraManager: CameraManager | null = null;
-  private player: Phaser.GameObjects.GameObject | null = null;
+  private player: Player | null = null;
   private frameCount: number = 0;
   private fps: number = 0;
   private fpsAccumulator: number = 0;
@@ -41,7 +43,7 @@ export class DebugOverlay {
     this.container.add(this.fpsText);
 
     this.infoText = scene.add.text(8, 28, "", {
-      fontSize: "14px",
+      fontSize: "13px",
       color: "#00ff00",
       backgroundColor: "#00000088",
       padding: { x: 4, y: 2 },
@@ -81,7 +83,7 @@ export class DebugOverlay {
     this.cameraManager = cameraManager;
   }
 
-  public setPlayer(player: Phaser.GameObjects.GameObject): void {
+  public setPlayer(player: Player): void {
     this.player = player;
   }
 
@@ -133,24 +135,44 @@ export class DebugOverlay {
   }
 
   private renderInfoText(): void {
-    let info = `Player: `;
+    let info = "";
+
     if (this.player) {
-      const pos = this.player as Phaser.GameObjects.GameObject & {
-        x: number;
-        y: number;
-      };
-      info += `(${pos.x.toFixed(1)}, ${pos.y.toFixed(1)})`;
+      const px = this.player.x;
+      const py = this.player.y;
+
+      const playerState = this.player.getController().getStateMachine().getCurrentStateId() ?? "?";
+      const playerHp = this.player.healthComponent.getCurrentHealth();
+      const playerMaxHp = this.player.healthComponent.getMaxHealth();
+
+      const combatCtrl = this.player.getCombatController();
+      const combatState = combatCtrl ? combatCtrl.getState() : "?";
+
+      info += `Player: (${px.toFixed(1)}, ${py.toFixed(1)})`;
+      info += `\nHP: ${playerHp}/${playerMaxHp} | State: ${playerState}`;
+      info += `\nCombat: ${combatState}`;
+
+      if (combatCtrl && combatCtrl.getState() !== CombatState.IDLE) {
+        info += ` (${combatCtrl.getCurrentAttackType()})`;
+      }
     } else {
-      info += "N/A";
+      info += "Player: N/A";
     }
 
     const enemies = EnemyManager.getInstance().getAllEnemies();
     info += `\nEnemies: ${enemies.length}`;
+
     for (const enemy of enemies) {
       const state = enemy.controller.ai.getCurrentStateId() ?? "?";
       const hp = enemy.controller.health.getCurrentHealth();
-      info += `\n  ${enemy.getEntityId().slice(0, 20)}: ${state} HP:${hp}`;
+      const maxHp = enemy.controller.health.getMaxHealth();
+      const shortId = enemy.getEntityId().slice(-8);
+      const combatState = enemy.combatController ? enemy.combatController.getState() : "N/A";
+      info += `\n  [${shortId}] ${state} HP:${hp}/${maxHp} Cbt:${combatState}`;
     }
+
+    const hitboxCount = CombatManager.getInstance().getHitboxManager().getActiveHitboxCount();
+    info += `\nActive Hitboxes: ${hitboxCount}`;
 
     if (this.cameraManager && this.cameraManager.isActive()) {
       const view = this.cameraManager.getCameraView();
@@ -178,6 +200,19 @@ export class DebugOverlay {
       body.width,
       body.height
     );
+
+    for (const enemy of EnemyManager.getInstance().getAllEnemies()) {
+      if (!enemy.isAlive()) continue;
+      const eBody = enemy.body as Phaser.Physics.Arcade.Body;
+      if (!eBody) continue;
+      this.collisionGraphics.lineStyle(1, 0xff6600, 0.6);
+      this.collisionGraphics.strokeRect(
+        eBody.x,
+        eBody.y,
+        eBody.width,
+        eBody.height
+      );
+    }
   }
 
   private renderDeadzone(): void {
@@ -236,6 +271,18 @@ export class DebugOverlay {
       // Attack radius - red
       this.enemyDebugGraphics.lineStyle(1, 0xff4444, 0.5);
       this.enemyDebugGraphics.strokeCircle(info.x, info.y, info.attackRadius);
+
+      // Health bar above enemy
+      const barW = 24;
+      const barH = 3;
+      const barX = info.x - barW / 2;
+      const barY = info.y - 20;
+      this.enemyDebugGraphics.fillStyle(0x333333, 0.7);
+      this.enemyDebugGraphics.fillRect(barX, barY, barW, barH);
+      const hpPct = info.maxHealth > 0 ? info.health / info.maxHealth : 0;
+      const hpColor = hpPct > 0.5 ? 0x44ff44 : hpPct > 0.25 ? 0xffaa44 : 0xff4444;
+      this.enemyDebugGraphics.fillStyle(hpColor, 0.9);
+      this.enemyDebugGraphics.fillRect(barX, barY, barW * hpPct, barH);
 
       // State label
       this.enemyDebugGraphics.lineStyle(1, 0x00ff00, 0.6);

@@ -100,6 +100,7 @@ export class EnemyManager {
         enemy.getEntityId()
       );
       combatMgr.registerController(enemy.getEntityId(), combatController);
+      enemy.combatController = combatController;
     }
   }
 
@@ -114,6 +115,24 @@ export class EnemyManager {
     controller.health.setOnDeath(() => {
       controller.ai.transitionTo("DEAD");
     });
+  }
+
+  public addEnemy(enemy: Enemy): void {
+    this.enemies.set(enemy.getEntityId(), enemy);
+  }
+
+  public registerEnemyCombat(enemy: Enemy, scene: Phaser.Scene): void {
+    const weapon = WeaponManager.getInstance().createWeapon(scene, "placeholder_sword");
+    if (weapon) {
+      const combatMgr = CombatManager.getInstance();
+      const combatController = new CombatController(
+        weapon,
+        combatMgr.getHitboxManager(),
+        enemy.getEntityId()
+      );
+      combatMgr.registerController(enemy.getEntityId(), combatController);
+      enemy.combatController = combatController;
+    }
   }
 
   public removeEnemy(entityId: string): void {
@@ -141,7 +160,7 @@ export class EnemyManager {
     }
   }
 
-  public checkPlayerHitboxCollisions(): void {
+  public checkPlayerHitboxCollisions(scene: Phaser.Scene | null): void {
     const combatMgr = CombatManager.getInstance();
     const hitboxManager = combatMgr.getHitboxManager();
     const hitboxes = hitboxManager.getActiveHitboxes();
@@ -168,16 +187,58 @@ export class EnemyManager {
           const damage = enemy.takeDamage(hb.damage);
           if (damage > 0) {
             Logger.getInstance().log(`[Combat] Player hit ${enemyId} for ${damage} damage`);
+
+            if (scene) {
+              scene.cameras.main.shake(80, 0.003);
+              scene.cameras.main.flash(80, 255, 255, 255);
+            }
+
+            enemy.applyKnockback(
+              { x: enemy.x - hx, y: enemy.y - hy },
+              150
+            );
+
+            this.showEnemyDamagePopup(enemy, damage);
           }
         }
       }
     }
   }
 
+  private showEnemyDamagePopup(enemy: Enemy, amount: number): void {
+    const scene = enemy.scene;
+    if (!scene) return;
+
+    const text = scene.add.text(
+      enemy.x + Phaser.Math.Between(-10, 10),
+      enemy.y - 20,
+      `-${amount}`,
+      {
+        fontSize: "14px",
+        color: "#ffaa00",
+        stroke: "#000000",
+        strokeThickness: 3,
+        fontStyle: "bold",
+      }
+    );
+    text.setDepth(9999);
+
+    scene.tweens.add({
+      targets: text,
+      y: text.y - 25,
+      alpha: 0,
+      duration: 500,
+      ease: "Power2",
+      onComplete: () => text.destroy(),
+    });
+  }
+
   public checkEnemyHitboxCollisions(player: Phaser.GameObjects.GameObject): void {
     const combatMgr = CombatManager.getInstance();
     const hitboxManager = combatMgr.getHitboxManager();
     const hitboxes = hitboxManager.getActiveHitboxes();
+
+    const p = player as any;
 
     for (const [, hb] of hitboxes) {
       if (!hb.ownerId || hb.ownerId === "player") continue;
@@ -196,8 +257,24 @@ export class EnemyManager {
       if (dist < hitRadius + 16) {
         hb.hitEntities.add(playerId);
         Logger.getInstance().log(`[Combat] Enemy hit player for ${hb.damage} damage`);
+
+        if (p.takeDamage) {
+          const enemyPos = this.getHitboxOwnerPosition(hb.ownerId);
+          p.takeDamage(hb.damage, enemyPos ?? { x: hx, y: hy });
+        } else if (p.healthComponent && p.healthComponent.isAlive()) {
+          p.healthComponent.takeDamage(hb.damage);
+        }
       }
     }
+  }
+
+  private getHitboxOwnerPosition(ownerId: string): { x: number; y: number } | null {
+    for (const enemy of this.enemies.values()) {
+      if (enemy.getEntityId() === ownerId) {
+        return { x: enemy.x, y: enemy.y };
+      }
+    }
+    return null;
   }
 
   public getEnemy(entityId: string): Enemy | undefined {

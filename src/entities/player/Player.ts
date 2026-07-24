@@ -10,6 +10,7 @@ import { CombatController } from "../../systems/combat/CombatController";
 import { CombatManager } from "../../systems/combat/CombatManager";
 import { WeaponManager } from "../../systems/combat/WeaponManager";
 import { AttackType } from "../../data/AttackData";
+import { HealthComponent } from "../../systems/combat/HealthComponent";
 
 const STATE_TO_ANIMATION: Record<PlayerStateId, AnimationId> = {
   [PlayerStateId.IDLE]: AnimationId.IDLE,
@@ -29,6 +30,17 @@ export class Player extends Phaser.GameObjects.Container {
   private animationController: AnimationController;
   private combatController: CombatController;
   private directionIndicator: Phaser.GameObjects.Arc;
+  public healthComponent: HealthComponent;
+
+  private invulnerable: boolean = false;
+  private invulnerabilityTimer: number = 0;
+  private readonly INVULNERABILITY_DURATION: number = 0.5;
+  private hitFlashTween: Phaser.Tweens.Tween | null = null;
+
+  private damagePopupPool: Phaser.GameObjects.Text[] = [];
+
+  private knockbackVelocity: { x: number; y: number } = { x: 0, y: 0 };
+  private knockbackDecay: number = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -37,6 +49,8 @@ export class Player extends Phaser.GameObjects.Container {
     config: IPlayerConfig = DEFAULT_PLAYER_CONFIG
   ) {
     super(scene, x, y);
+
+    this.healthComponent = new HealthComponent(config.combat.maxHealth);
 
     // Initialize controller and input bridge
     this.controller = new PlayerController(config);
@@ -105,6 +119,9 @@ export class Player extends Phaser.GameObjects.Container {
   public update(_time: number, delta: number): void {
     const dt = delta / 1000;
 
+    this.updateInvulnerability(dt);
+    this.updateKnockback(dt);
+
     // Get input and update controller
     const input = this.inputBridge.getInput();
     this.controller.update(dt, input);
@@ -112,9 +129,12 @@ export class Player extends Phaser.GameObjects.Container {
     // Sync physics body
     const body = this.body as Phaser.Physics.Arcade.Body;
 
-    // Apply controller velocity to Phaser physics body
+    // Apply knockback velocity on top of controller velocity
     const velocity = this.controller.getVelocity();
-    body.setVelocity(velocity.x, velocity.y);
+    body.setVelocity(
+      velocity.x + this.knockbackVelocity.x,
+      velocity.y + this.knockbackVelocity.y
+    );
 
     // Sync controller logical position back from Phaser
     this.controller.setPosition(this.x, this.y);
@@ -157,5 +177,131 @@ export class Player extends Phaser.GameObjects.Container {
     const facingDir = this.controller.getFacingDirection();
     const distance = 16;
     this.directionIndicator.setPosition(facingDir.x * distance, facingDir.y * distance);
+  }
+
+  public takeDamage(amount: number, source?: { x: number; y: number }): boolean {
+    if (this.invulnerable || !this.healthComponent.isAlive()) return false;
+
+    const actualDamage = this.healthComponent.takeDamage(amount);
+    if (actualDamage <= 0) return false;
+
+    this.invulnerable = true;
+    this.invulnerabilityTimer = this.INVULNERABILITY_DURATION;
+
+    this.controller.getStateMachine().transitionTo(PlayerStateId.HURT);
+
+    this.startHitFlash();
+
+    const scene = this.scene;
+    if (scene) {
+      scene.cameras.main.shake(100, 0.005);
+
+      if (source) {
+        const knockDir = {
+          x: this.x - source.x,
+          y: this.y - source.y,
+        };
+        const len = Math.sqrt(knockDir.x ** 2 + knockDir.y ** 2);
+        if (len > 0) {
+          this.knockbackVelocity.x = (knockDir.x / len) * 200;
+          this.knockbackVelocity.y = (knockDir.y / len) * 200;
+          this.knockbackDecay = 400;
+        }
+      }
+
+      this.showDamagePopup(actualDamage);
+    }
+
+    if (!this.healthComponent.isAlive()) {
+      this.controller.getStateMachine().transitionTo(PlayerStateId.DEAD);
+    }
+
+    return true;
+  }
+
+  private updateInvulnerability(dt: number): void {
+    if (!this.invulnerable) return;
+    this.invulnerabilityTimer -= dt;
+    if (this.invulnerabilityTimer <= 0) {
+      this.invulnerable = false;
+      this.clearHitFlash();
+    }
+  }
+
+  private updateKnockback(dt: number): void {
+    if (this.knockbackDecay > 0) {
+      this.knockbackVelocity.x *= (1 - dt * 10);
+      this.knockbackVelocity.y *= (1 - dt * 10);
+      this.knockbackDecay -= dt * 400;
+      if (this.knockbackDecay <= 0) {
+        this.knockbackVelocity.x = 0;
+        this.knockbackVelocity.y = 0;
+      }
+    }
+  }
+
+  private startHitFlash(): void {
+    const sprite = this.animationController.getSprite();
+    if (!sprite) return;
+    if (this.hitFlashTween) {
+      this.hitFlashTween.stop();
+    }
+    sprite.setTint(0xff0000);
+    this.hitFlashTween = this.scene.tweens.add({
+      targets: sprite,
+      alpha: { from: 1, to: 0.4 },
+      duration: 100,
+      yoyo: true,
+      repeat: 2,
+      onComplete: () => {
+        sprite.clearTint();
+        sprite.setAlpha(1);
+      },
+    });
+  }
+
+  private clearHitFlash(): void {
+    const sprite = this.animationController.getSprite();
+    if (sprite) {
+      sprite.clearTint();
+      sprite.setAlpha(1);
+    }
+  }
+
+  private showDamagePopup(amount: number): void {
+    const scene = this.scene;
+    if (!scene) return;
+
+    let text = this.damagePopupPool.find(t => !t.visible);
+    if (!text) {
+      text = scene.add.text(0, 0, "", {
+        fontSize: "16px",
+        color: "#ff4444",
+        stroke: "#000000",
+        strokeThickness: 3,
+        fontStyle: "bold",
+      });
+      text.setDepth(9999);
+      this.damagePopupPool.push(text);
+    }
+
+    text.setText(`-${amount}`);
+    text.setPosition(
+      this.x + Phaser.Math.Between(-15, 15),
+      this.y - 20
+    );
+    text.setVisible(true);
+    text.setAlpha(1);
+
+    scene.tweens.add({
+      targets: text,
+      y: text.y - 30,
+      alpha: 0,
+      duration: 600,
+      ease: "Power2",
+      onComplete: () => {
+        text.setVisible(false);
+      },
+    });
   }
 }

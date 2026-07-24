@@ -88,7 +88,7 @@ export class EnemyAI {
   }
 
   private applyTargetVelocity(dt: number): void {
-    const lerpFactor = 8 * dt;
+    const lerpFactor = 12 * dt;
     this.velocity.x += (this.targetVelocity.x - this.velocity.x) * lerpFactor;
     this.velocity.y += (this.targetVelocity.y - this.velocity.y) * lerpFactor;
 

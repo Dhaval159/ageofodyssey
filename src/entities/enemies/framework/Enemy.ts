@@ -2,11 +2,14 @@ import Phaser from "phaser";
 import { IEnemyConfig } from "./EnemyConfig";
 import { EnemyController } from "./EnemyController";
 import { CombatManager } from "../../../systems/combat/CombatManager";
+import { CombatController } from "../../../systems/combat/CombatController";
 import { IEnemyState } from "../states/IEnemyState";
 import { EnemyStateId } from "../states/EnemyStateId";
+import { AttackType } from "../../../data/AttackData";
 
 export class Enemy extends Phaser.GameObjects.Container {
   public controller: EnemyController;
+  public combatController: CombatController | null = null;
   protected entityId: string;
   private deathTimer: number = 0;
 
@@ -58,6 +61,19 @@ export class Enemy extends Phaser.GameObjects.Container {
       return;
     }
 
+    if (this.combatController) {
+      const dir = this.controller.ai.getFacingDirection();
+      this.combatController.update(dt, { x: this.x, y: this.y }, dir);
+
+      if (this.controller.ai.consumeAttackRequest()) {
+        this.combatController.requestAttack(
+          AttackType.LIGHT,
+          dir,
+          { x: this.x, y: this.y }
+        );
+      }
+    }
+
     const aiVelocity = this.controller.ai.getVelocity();
     body.setVelocity(aiVelocity.x, aiVelocity.y);
 
@@ -78,6 +94,16 @@ export class Enemy extends Phaser.GameObjects.Container {
 
   public takeDamage(amount: number): number {
     return this.controller.health.takeDamage(amount);
+  }
+
+  public applyKnockback(from: { x: number; y: number }, force: number): void {
+    const len = Math.sqrt(from.x ** 2 + from.y ** 2);
+    if (len > 0) {
+      const knockX = (from.x / len) * force;
+      const knockY = (from.y / len) * force;
+      const aiVel = this.controller.ai.getVelocity();
+      this.controller.ai.setVelocity(aiVel.x + knockX, aiVel.y + knockY);
+    }
   }
 
   public isAlive(): boolean {
