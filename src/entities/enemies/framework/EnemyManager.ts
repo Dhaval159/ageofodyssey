@@ -12,6 +12,7 @@ import { CombatController } from "../../../systems/combat/CombatController";
 import { WeaponManager } from "../../../systems/combat/WeaponManager";
 import { Logger } from "../../../core/Logger";
 import { HitboxShape } from "../../../data/AttackData";
+import { EffectsManager } from "../../../systems/effects/EffectsManager";
 
 export interface EnemyDebugInfo {
   x: number;
@@ -24,6 +25,7 @@ export interface EnemyDebugInfo {
   maxHealth: number;
   isAlive: boolean;
   entityId: string;
+  entityType: string;
   patrolTarget: { x: number; y: number } | null;
   homePosition: { x: number; y: number };
   velocity: { x: number; y: number };
@@ -189,10 +191,19 @@ export class EnemyManager {
             Logger.getInstance().log(`[Combat] Player hit ${enemyId} for ${damage} damage`);
 
             if (scene) {
+              const shakeIntensity = Math.min(0.003 + damage * 0.0003, 0.015);
               this.triggerHitPause();
-              scene.cameras.main.shake(100, 0.005);
-              scene.cameras.main.flash(120, 255, 255, 255);
+              scene.cameras.main.shake(80, shakeIntensity);
+              scene.cameras.main.flash(80, 255, 255, 255);
             }
+
+            EffectsManager.getInstance().emitHitSpark(
+              (enemy.x + hb.shape.x) / 2,
+              (enemy.y + hb.shape.y) / 2,
+              10
+            );
+
+            this.flashEnemySprite(enemy);
 
             enemy.applyKnockback(
               { x: enemy.x - hb.shape.x, y: enemy.y - hb.shape.y },
@@ -200,6 +211,10 @@ export class EnemyManager {
             );
 
             this.showEnemyDamagePopup(enemy, damage);
+
+            if (!enemy.isAlive()) {
+              this.triggerDeathFreeze(scene);
+            }
           }
         }
       }
@@ -212,23 +227,26 @@ export class EnemyManager {
 
     const text = scene.add.text(
       enemy.x + Phaser.Math.Between(-10, 10),
-      enemy.y - 20,
+      enemy.y - 25,
       `-${amount}`,
       {
-        fontSize: "14px",
+        fontSize: "16px",
         color: "#ffaa00",
         stroke: "#000000",
-        strokeThickness: 3,
+        strokeThickness: 4,
         fontStyle: "bold",
       }
     );
     text.setDepth(9999);
+    text.setScale(1.1);
 
     scene.tweens.add({
       targets: text,
-      y: text.y - 25,
+      y: text.y - 35,
       alpha: 0,
-      duration: 500,
+      scaleX: 0.7,
+      scaleY: 0.7,
+      duration: 600,
       ease: "Power2",
       onComplete: () => text.destroy(),
     });
@@ -339,6 +357,36 @@ export class EnemyManager {
     return count;
   }
 
+  private flashEnemySprite(enemy: Enemy): void {
+    try {
+      const sprite = (enemy as any).controller?.animator?.getSprite?.();
+      if (sprite && sprite.scene) {
+        sprite.setTint(0xffffff);
+        sprite.scene.tweens.add({
+          targets: sprite,
+          tint: { from: 0xffffff, to: 0xff4444 },
+          duration: 60,
+          yoyo: true,
+          onComplete: () => {
+            if (sprite.scene) sprite.clearTint();
+          },
+        });
+      }
+    } catch (_e) {
+    }
+  }
+
+  private triggerDeathFreeze(scene: Phaser.Scene | null): void {
+    if (!scene) return;
+    scene.time.timeScale = 0.15;
+    scene.cameras.main.shake(150, 0.008);
+    scene.time.delayedCall(200, () => {
+      if (scene.scene.isActive()) {
+        scene.time.timeScale = 1;
+      }
+    });
+  }
+
   private getHitboxOwnerPosition(ownerId: string): { x: number; y: number } | null {
     for (const enemy of this.enemies.values()) {
       if (enemy.getEntityId() === ownerId) {
@@ -372,6 +420,7 @@ export class EnemyManager {
         maxHealth: enemy.controller.health.getMaxHealth(),
         isAlive: enemy.controller.health.isAlive(),
         entityId: enemy.getEntityId(),
+        entityType: config.entityType,
         patrolTarget: ai.getPatrolTarget(),
         homePosition: ai.getHomePosition(),
         velocity: ai.getVelocity(),

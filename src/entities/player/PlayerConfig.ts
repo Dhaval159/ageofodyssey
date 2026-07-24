@@ -37,7 +37,7 @@ export const DEFAULT_PLAYER_CONFIG: IPlayerConfig = {
   combat: {
     weaponKey: "placeholder_sword",
     maxHealth: 100,
-    lightAttackDuration: 0.3,
-    heavyAttackDuration: 0.6,
+    lightAttackDuration: 0.25,
+    heavyAttackDuration: 0.5,
   },
 };

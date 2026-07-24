@@ -34,9 +34,9 @@ export class WeaponRegistry {
           type: AttackType.LIGHT,
           damage: 15,
           range: 28,
-          duration: 0.25,
-          cooldown: 0.5,
-          windUp: 0.06,
+          duration: 0.15,
+          cooldown: 0.3,
+          windUp: 0.04,
           hitbox: {
             shape: HitboxShape.RECTANGLE,
             width: 28,
@@ -49,7 +49,7 @@ export class WeaponRegistry {
           type: AttackType.HEAVY,
           damage: 25,
           range: 32,
-          duration: 0.5,
+          duration: 0.35,
           cooldown: 0.4,
           windUp: 0.08,
           hitbox: {

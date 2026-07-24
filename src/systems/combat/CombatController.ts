@@ -99,7 +99,9 @@ export class CombatController {
   }
 
   public update(dt: number, position: { x: number; y: number }, direction: { x: number; y: number }): void {
-    this.weapon.updateSwing(dt, direction.x, direction.y);
+    this.lastPosition = { ...position };
+    this.lastDirection = { ...direction };
+    this.weapon.updateSwing(dt, direction.x, direction.y, position.x, position.y);
 
     if (this.activeHitboxId) {
       const hb = this.hitboxManager.getActiveHitboxes().get(this.activeHitboxId);
@@ -156,10 +158,22 @@ export class CombatController {
     }
   }
 
+  private lastDirection: { x: number; y: number } = { x: 0, y: 1 };
+  private lastPosition: { x: number; y: number } = { x: 0, y: 0 };
+
   private processQueue(): void {
     if (this.attackQueue.length > 0) {
-      this.attackQueue = [];
+      const nextType = this.attackQueue.shift()!;
+      const def = this.weapon.getAttackDef(nextType);
+      if (def) {
+        this.startAttack(nextType, def, this.lastDirection, this.lastPosition);
+      }
     }
+  }
+
+  public updateLastTransform(position: { x: number; y: number }, direction: { x: number; y: number }): void {
+    this.lastPosition = { ...position };
+    this.lastDirection = { ...direction };
   }
 
   public isAttacking(): boolean {

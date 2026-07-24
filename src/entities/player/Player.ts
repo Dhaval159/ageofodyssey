@@ -11,6 +11,7 @@ import { CombatManager } from "../../systems/combat/CombatManager";
 import { WeaponManager } from "../../systems/combat/WeaponManager";
 import { AttackType } from "../../data/AttackData";
 import { HealthComponent } from "../../systems/combat/HealthComponent";
+import { EffectsManager } from "../../systems/effects/EffectsManager";
 
 const STATE_TO_ANIMATION: Record<PlayerStateId, AnimationId> = {
   [PlayerStateId.IDLE]: AnimationId.IDLE,
@@ -153,6 +154,9 @@ export class Player extends Phaser.GameObjects.Container {
           dir,
           { x: this.x, y: this.y }
         );
+        if (this.scene) {
+          this.scene.cameras.main.shake(30, 0.002);
+        }
       } else if (playerStateId === PlayerStateId.HEAVY_ATTACKING) {
         const dir = this.controller.getFacingDirection();
         this.combatController.requestAttack(
@@ -160,6 +164,9 @@ export class Player extends Phaser.GameObjects.Container {
           dir,
           { x: this.x, y: this.y }
         );
+        if (this.scene) {
+          this.scene.cameras.main.shake(50, 0.004);
+        }
       }
     }
     this.prevStateId = playerStateId;
@@ -175,8 +182,14 @@ export class Player extends Phaser.GameObjects.Container {
     }
 
     // Compute speed from velocity for animation speed scaling
-    const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
-    this.animationController.update(delta, speed);
+    const pSpeed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
+    this.animationController.update(delta, pSpeed);
+
+    // Dust particles while moving
+    if (pSpeed > 40) {
+      const facingDir = this.controller.getFacingDirection();
+      EffectsManager.getInstance().checkDustEmission(this.x, this.y, pSpeed, facingDir, dt);
+    }
 
     // Update direction indicator relative to facing direction
     const facingDir = this.controller.getFacingDirection();
@@ -199,7 +212,10 @@ export class Player extends Phaser.GameObjects.Container {
 
     const scene = this.scene;
     if (scene) {
-      scene.cameras.main.shake(100, 0.005);
+      const shakeIntensity = Math.min(0.003 + actualDamage * 0.0003, 0.015);
+      scene.cameras.main.shake(100, shakeIntensity);
+
+      EffectsManager.getInstance().emitHitSpark(this.x, this.y, 6);
 
       if (source) {
         const knockDir = {
@@ -280,10 +296,10 @@ export class Player extends Phaser.GameObjects.Container {
     let text = this.damagePopupPool.find(t => !t.visible);
     if (!text) {
       text = scene.add.text(0, 0, "", {
-        fontSize: "16px",
-        color: "#ff4444",
+        fontSize: "18px",
+        color: "#ff6644",
         stroke: "#000000",
-        strokeThickness: 3,
+        strokeThickness: 4,
         fontStyle: "bold",
       });
       text.setDepth(9999);
@@ -292,17 +308,20 @@ export class Player extends Phaser.GameObjects.Container {
 
     text.setText(`-${amount}`);
     text.setPosition(
-      this.x + Phaser.Math.Between(-15, 15),
-      this.y - 20
+      this.x + Phaser.Math.Between(-12, 12),
+      this.y - 25
     );
     text.setVisible(true);
     text.setAlpha(1);
+    text.setScale(1.2);
 
     scene.tweens.add({
       targets: text,
-      y: text.y - 30,
+      y: text.y - 40,
       alpha: 0,
-      duration: 600,
+      scaleX: 0.8,
+      scaleY: 0.8,
+      duration: 700,
       ease: "Power2",
       onComplete: () => {
         text.setVisible(false);

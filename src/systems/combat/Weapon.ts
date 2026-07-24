@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { AttackType, AttackDef } from "../../data/AttackData";
+import { EffectsManager } from "../effects/EffectsManager";
 
 export class Weapon {
   private sprite: Phaser.GameObjects.Sprite | null = null;
@@ -13,6 +14,7 @@ export class Weapon {
   private ownerY: number = 0;
   private isSwinging: boolean = false;
   private swingProgress: number = 0;
+  private trailTip: { x: number; y: number } = { x: 0, y: 0 };
 
   constructor(
     scene: Phaser.Scene,
@@ -70,9 +72,12 @@ export class Weapon {
     this.isSwinging = true;
     this.swingProgress = 0;
 
+    EffectsManager.getInstance().startSwordTrail();
+
     const weaponDistance = 18;
     const tipX = ownerX + facingX * weaponDistance;
     const tipY = ownerY + facingY * weaponDistance;
+    this.trailTip = { x: tipX, y: tipY };
 
     if (this.sprite) {
       this.sprite.setPosition(tipX, tipY);
@@ -86,8 +91,11 @@ export class Weapon {
     }
   }
 
-  public updateSwing(dt: number, facingX: number, facingY: number): boolean {
+  public updateSwing(dt: number, facingX: number, facingY: number, ownerX?: number, ownerY?: number): boolean {
     if (!this.isSwinging) return false;
+
+    if (ownerX !== undefined) this.ownerX = ownerX;
+    if (ownerY !== undefined) this.ownerY = ownerY;
 
     this.swingProgress += dt / this.attackDuration;
     if (this.swingProgress >= 1) {
@@ -97,10 +105,13 @@ export class Weapon {
     }
 
     const weaponDistance = 18;
-    const ownerX = this.ownerX;
-    const ownerY = this.ownerY;
-    const tipX = ownerX + facingX * weaponDistance;
-    const tipY = ownerY + facingY * weaponDistance;
+    const currentOwnerX = this.ownerX;
+    const currentOwnerY = this.ownerY;
+    const tipX = currentOwnerX + facingX * weaponDistance;
+    const tipY = currentOwnerY + facingY * weaponDistance;
+    this.trailTip = { x: tipX, y: tipY };
+
+    EffectsManager.getInstance().updateSwordTrail(tipX, tipY);
 
     if (this.sprite) {
       this.sprite.setPosition(tipX, tipY);
@@ -113,16 +124,16 @@ export class Weapon {
 
     if (this.graphics) {
       this.graphics.clear();
-      this.graphics.lineStyle(3, 0xc0c0c0, 1);
       const angle = Math.atan2(facingY, facingX);
       const arc = Math.PI / 3;
       const t = this.swingProgress;
       const currentAngle = angle - arc / 2 + arc * t;
       const len = this.range;
-      const tipGx = ownerX + Math.cos(currentAngle) * len;
-      const tipGy = ownerY + Math.sin(currentAngle) * len;
+      const tipGx = currentOwnerX + Math.cos(currentAngle) * len;
+      const tipGy = currentOwnerY + Math.sin(currentAngle) * len;
+      this.graphics.lineStyle(3, 0xc0c0c0, 1);
       this.graphics.beginPath();
-      this.graphics.moveTo(ownerX, ownerY);
+      this.graphics.moveTo(currentOwnerX, currentOwnerY);
       this.graphics.lineTo(tipGx, tipGy);
       this.graphics.strokePath();
     }
@@ -131,6 +142,7 @@ export class Weapon {
   }
 
   public endSwing(): void {
+    EffectsManager.getInstance().endSwordTrail();
     this.isSwinging = false;
     this.swingProgress = 0;
     if (this.sprite) {
@@ -148,6 +160,10 @@ export class Weapon {
 
   public getSwingProgress(): number {
     return this.swingProgress;
+  }
+
+  public getTrailTip(): { x: number; y: number } {
+    return { ...this.trailTip };
   }
 
   public destroy(): void {

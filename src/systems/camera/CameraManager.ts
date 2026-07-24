@@ -26,12 +26,19 @@ interface ICameraShakeState {
   duration: number;
 }
 
+interface ICameraImpulseState {
+  x: number;
+  y: number;
+  decay: number;
+}
+
 export class CameraManager {
   private camera: Phaser.Cameras.Scene2D.Camera;
   private target: Phaser.GameObjects.GameObject | null = null;
   private currentCenterX: number = 0;
   private currentCenterY: number = 0;
   private shakeState: ICameraShakeState | null = null;
+  private impulseState: ICameraImpulseState | null = null;
   private isFollowing: boolean = false;
 
   private readonly minZoom: number;
@@ -146,6 +153,16 @@ export class CameraManager {
       }
     }
 
+    if (this.impulseState) {
+      this.currentCenterX += this.impulseState.x * delta * 0.06;
+      this.currentCenterY += this.impulseState.y * delta * 0.06;
+      this.impulseState.x *= (1 - this.impulseState.decay * delta * 0.001);
+      this.impulseState.y *= (1 - this.impulseState.decay * delta * 0.001);
+      if (Math.abs(this.impulseState.x) < 0.5 && Math.abs(this.impulseState.y) < 0.5) {
+        this.impulseState = null;
+      }
+    }
+
     const { width: viewW, height: viewH } = this.camera;
     let finalX = this.currentCenterX;
     let finalY = this.currentCenterY;
@@ -216,10 +233,20 @@ export class CameraManager {
     return this.isFollowing;
   }
 
+  public addImpulse(x: number, y: number, decay: number = 8): void {
+    if (this.impulseState) {
+      this.impulseState.x += x;
+      this.impulseState.y += y;
+    } else {
+      this.impulseState = { x, y, decay };
+    }
+  }
+
   public destroy(): void {
     this.isFollowing = false;
     this.target = null;
     this.shakeState = null;
+    this.impulseState = null;
     Logger.getInstance().log("[CameraManager] Destroyed");
   }
 }

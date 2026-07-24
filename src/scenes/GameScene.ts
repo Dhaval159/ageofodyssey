@@ -15,6 +15,8 @@ import { CombatManager } from "../systems/combat/CombatManager";
 import { EnemyManager } from "../entities/enemies/framework/EnemyManager";
 import { Wolf } from "../entities/enemies/wolf/Wolf";
 import { CollisionManager } from "../managers/CollisionManager";
+import { EffectsManager } from "../systems/effects/EffectsManager";
+import { HUD } from "../systems/effects/HUD";
 
 export default class GameScene extends Phaser.Scene {
   private worldManager: WorldManager | null = null;
@@ -22,6 +24,8 @@ export default class GameScene extends Phaser.Scene {
   private player: Player | null = null;
   private debugOverlay: DebugOverlay | null = null;
   private enemyGroup: Phaser.Physics.Arcade.Group | null = null;
+  private hud: HUD | null = null;
+  private effects: EffectsManager | null = null;
 
   constructor() {
     super({ key: "GameScene" });
@@ -81,6 +85,11 @@ export default class GameScene extends Phaser.Scene {
 
     this.setupEnemies();
     this.setupCollisions();
+
+    this.effects = EffectsManager.getInstance();
+    this.effects.initialize(this);
+
+    this.hud = new HUD(this);
 
     this.debugOverlay = new DebugOverlay(this);
     this.debugOverlay.setCameraManager(this.cameraManager);
@@ -165,6 +174,14 @@ export default class GameScene extends Phaser.Scene {
       if (this.player) {
         enemyMgr.checkEnemyHitboxCollisions(this.player);
       }
+    }
+
+    if (this.effects) {
+      this.effects.update(delta / 1000);
+    }
+
+    if (this.hud) {
+      this.hud.update(this.player);
     }
 
     if (this.cameraManager) {

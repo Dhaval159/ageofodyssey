@@ -68,7 +68,11 @@ export class PlayerController {
     } else if (stateId === PlayerStateId.RUNNING) {
       speed = this.config.runSpeed;
     } else if (stateId === PlayerStateId.ROLLING) {
-      speed = this.config.runSpeed; // Use running speed for placeholder roll speed
+      speed = this.config.runSpeed;
+    } else if (stateId === PlayerStateId.ATTACKING) {
+      speed = this.config.walkSpeed * 0.4;
+    } else if (stateId === PlayerStateId.HEAVY_ATTACKING) {
+      speed = this.config.walkSpeed * 0.25;
     }
 
     let targetVx = 0;
@@ -77,7 +81,9 @@ export class PlayerController {
     const canMove =
       stateId === PlayerStateId.WALKING ||
       stateId === PlayerStateId.RUNNING ||
-      stateId === PlayerStateId.ROLLING;
+      stateId === PlayerStateId.ROLLING ||
+      stateId === PlayerStateId.ATTACKING ||
+      stateId === PlayerStateId.HEAVY_ATTACKING;
 
     if (canMove) {
       targetVx = this.currentInput.moveVector.x * speed;

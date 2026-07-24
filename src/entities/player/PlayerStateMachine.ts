@@ -178,14 +178,37 @@ export class RollingState implements IPlayerState {
 export class AttackingState implements IPlayerState {
   public id = PlayerStateId.ATTACKING;
   private timer: number = 0;
+  private totalDuration: number = 0;
+  private readonly RECOVERY_MOVE_THRESHOLD: number = 0.65;
 
   public enter(controller: PlayerController): void {
-    this.timer = controller.getConfig().combat.lightAttackDuration;
+    this.totalDuration = controller.getConfig().combat.lightAttackDuration;
+    this.timer = this.totalDuration;
   }
   public update(controller: PlayerController, dt: number): void {
     this.timer -= dt;
+    const progress = 1 - this.timer / this.totalDuration;
+    const input = controller.getCurrentInput();
+
+    if (progress >= this.RECOVERY_MOVE_THRESHOLD) {
+      if (input.isAttacking) {
+        return;
+      }
+      if (input.moveVector.x !== 0 || input.moveVector.y !== 0) {
+        if (input.isRunning) {
+          controller.getStateMachine().transitionTo(PlayerStateId.RUNNING);
+        } else {
+          controller.getStateMachine().transitionTo(PlayerStateId.WALKING);
+        }
+        return;
+      }
+    }
+
     if (this.timer <= 0) {
-      const input = controller.getCurrentInput();
+      if (input.isAttacking) {
+        controller.getStateMachine().transitionTo(PlayerStateId.ATTACKING);
+        return;
+      }
       if (input.moveVector.x !== 0 || input.moveVector.y !== 0) {
         if (input.isRunning) {
           controller.getStateMachine().transitionTo(PlayerStateId.RUNNING);
@@ -203,14 +226,37 @@ export class AttackingState implements IPlayerState {
 export class HeavyAttackingState implements IPlayerState {
   public id = PlayerStateId.HEAVY_ATTACKING;
   private timer: number = 0;
+  private totalDuration: number = 0;
+  private readonly RECOVERY_MOVE_THRESHOLD: number = 0.6;
 
   public enter(controller: PlayerController): void {
-    this.timer = controller.getConfig().combat.heavyAttackDuration;
+    this.totalDuration = controller.getConfig().combat.heavyAttackDuration;
+    this.timer = this.totalDuration;
   }
   public update(controller: PlayerController, dt: number): void {
     this.timer -= dt;
+    const progress = 1 - this.timer / this.totalDuration;
+    const input = controller.getCurrentInput();
+
+    if (progress >= this.RECOVERY_MOVE_THRESHOLD) {
+      if (input.isHeavyAttacking) {
+        return;
+      }
+      if (input.moveVector.x !== 0 || input.moveVector.y !== 0) {
+        if (input.isRunning) {
+          controller.getStateMachine().transitionTo(PlayerStateId.RUNNING);
+        } else {
+          controller.getStateMachine().transitionTo(PlayerStateId.WALKING);
+        }
+        return;
+      }
+    }
+
     if (this.timer <= 0) {
-      const input = controller.getCurrentInput();
+      if (input.isHeavyAttacking) {
+        controller.getStateMachine().transitionTo(PlayerStateId.HEAVY_ATTACKING);
+        return;
+      }
       if (input.moveVector.x !== 0 || input.moveVector.y !== 0) {
         if (input.isRunning) {
           controller.getStateMachine().transitionTo(PlayerStateId.RUNNING);
