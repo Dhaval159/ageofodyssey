@@ -1,4 +1,5 @@
 import { PlayerController } from "./PlayerController";
+import { Logger } from "../../core/Logger";
 
 export enum PlayerStateId {
   IDLE = "IDLE",
@@ -35,7 +36,7 @@ export class PlayerStateMachine {
   public transitionTo(stateId: PlayerStateId): void {
     const nextState = this.states.get(stateId);
     if (!nextState) {
-      console.warn(`State ${stateId} is not registered.`);
+      Logger.getInstance().warn(`PlayerStateMachine: state ${stateId} is not registered.`);
       return;
     }
 

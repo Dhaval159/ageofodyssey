@@ -155,6 +155,24 @@ export class EnemyManager {
   }
 
   public update(_time: number, delta: number): void {
+    // Tick hit pause first - if paused, skip enemy updates but still tick timers
+    this.tickHitPause(delta);
+    
+    if (this.isHitPaused()) {
+      // During hit pause, only update death timers for cleanup
+      for (const [id, enemy] of this.enemies) {
+        if (!enemy.scene) {
+          this.enemies.delete(id);
+          continue;
+        }
+        const stateId = enemy.controller.ai.getCurrentStateId();
+        if (stateId === "DEAD") {
+          enemy.update(_time, delta);
+        }
+      }
+      return;
+    }
+
     const deadEnemies: string[] = [];
 
     for (const [id, enemy] of this.enemies) {
@@ -258,14 +276,13 @@ export class EnemyManager {
     const hitboxes = hitboxManager.getActiveHitboxes();
 
     const p = player as any;
+    const px = (player as unknown as { x: number; y: number }).x ?? 0;
+    const py = (player as unknown as { x: number; y: number }).y ?? 0;
 
     for (const [, hb] of hitboxes) {
       if (!hb.ownerId || hb.ownerId === "player") continue;
       const playerId = "PLAYER_TARGET";
       if (hb.hitEntities.has(playerId)) continue;
-
-      const px = (player as unknown as { x: number; y: number }).x ?? 0;
-      const py = (player as unknown as { x: number; y: number }).y ?? 0;
 
       const hit = this.checkHitboxVsPoint(hb, px, py);
       if (hit) {
@@ -359,20 +376,25 @@ export class EnemyManager {
 
   private flashEnemySprite(enemy: Enemy): void {
     try {
-      const sprite = (enemy as any).controller?.animator?.getSprite?.();
+      const sprite = enemy.controller?.animator?.getSprite();
       if (sprite && sprite.scene) {
+        // Clear any existing tint first
+        sprite.clearTint();
+        // Flash white briefly then red
         sprite.setTint(0xffffff);
         sprite.scene.tweens.add({
           targets: sprite,
           tint: { from: 0xffffff, to: 0xff4444 },
-          duration: 60,
+          duration: 80,
           yoyo: true,
+          repeat: 1,
           onComplete: () => {
             if (sprite.scene) sprite.clearTint();
           },
         });
       }
     } catch (_e) {
+      // Silently ignore errors in visual effects
     }
   }
 

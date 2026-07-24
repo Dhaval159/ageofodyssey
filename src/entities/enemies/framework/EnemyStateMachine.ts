@@ -1,5 +1,6 @@
 import { IEnemyState } from "../states/IEnemyState";
 import { EnemyAI } from "./EnemyAI";
+import { Logger } from "../../../core/Logger";
 
 export class EnemyStateMachine {
   private states: Map<string, IEnemyState> = new Map();
@@ -13,7 +14,7 @@ export class EnemyStateMachine {
   public transitionTo(stateId: string, ai: EnemyAI): void {
     const nextState = this.states.get(stateId);
     if (!nextState) {
-      console.warn(`EnemyStateMachine: state ${stateId} not registered`);
+      Logger.getInstance().warn(`EnemyStateMachine: state ${stateId} not registered`);
       return;
     }
     if (this.currentState && this.currentState.id === stateId) return;

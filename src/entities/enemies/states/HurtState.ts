@@ -17,8 +17,11 @@ export class HurtState implements IEnemyState {
     ai.tickHurtTimer(dt);
     this.timer -= dt;
 
+    // Check if player is still in range and visible after hurt
     if (this.timer <= 0) {
-      if (ai.canSeePlayer()) {
+      if (ai.canSeePlayer() && ai.isPlayerInAttackRange()) {
+        ai.transitionTo(EnemyStateId.ATTACK);
+      } else if (ai.canSeePlayer()) {
         ai.transitionTo(EnemyStateId.CHASE);
       } else if (ai.isPlayerInAggroRange()) {
         ai.transitionTo(EnemyStateId.INVESTIGATE);
