@@ -68,6 +68,13 @@ export default class MainMenuScene extends Phaser.Scene {
         },
       },
       {
+        label: "Sandbox",
+        onClick: () => {
+          Logger.getInstance().log("[MainMenu] Sandbox clicked");
+          SceneTransitionManager.getInstance().transitionTo("SandboxScene", { fadeDuration: 500 });
+        },
+      },
+      {
         label: "Settings",
         onClick: () => {
           Logger.getInstance().log("[MainMenu] Settings clicked");

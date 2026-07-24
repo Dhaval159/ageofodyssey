@@ -8,6 +8,8 @@ import { HitboxShape } from "../../data/AttackData";
 import { EnemyManager } from "../../entities/enemies/framework/EnemyManager";
 import { Player } from "../../entities/player/Player";
 import { CombatState } from "../combat/CombatController";
+import { InteractionManager } from "../interaction/InteractionManager";
+import { BaseInteractable } from "../interaction/BaseInteractable";
 
 const STATE_COLORS: Record<string, number> = {
   IDLE: 0x888888,
@@ -28,6 +30,7 @@ export class DebugOverlay {
   private deadzoneGraphics: Phaser.GameObjects.Graphics;
   private hitboxGraphics: Phaser.GameObjects.Graphics;
   private enemyDebugGraphics: Phaser.GameObjects.Graphics;
+  private interactableGraphics: Phaser.GameObjects.Graphics;
   private enabled: boolean = false;
   private cameraManager: CameraManager | null = null;
   private player: Player | null = null;
@@ -77,11 +80,16 @@ export class DebugOverlay {
     this.enemyDebugGraphics.setScrollFactor(1);
     this.enemyDebugGraphics.setDepth(9996);
 
+    this.interactableGraphics = scene.add.graphics();
+    this.interactableGraphics.setScrollFactor(1);
+    this.interactableGraphics.setDepth(9995);
+
     this.container.setVisible(false);
     this.collisionGraphics.setVisible(false);
     this.deadzoneGraphics.setVisible(false);
     this.hitboxGraphics.setVisible(false);
     this.enemyDebugGraphics.setVisible(false);
+    this.interactableGraphics.setVisible(false);
 
     this.COLLISION_STROKE = 0xff00ff;
     this.DEADZONE_STROKE = 0x00ffff;
@@ -114,6 +122,7 @@ export class DebugOverlay {
     this.deadzoneGraphics.setVisible(this.enabled);
     this.hitboxGraphics.setVisible(this.enabled);
     this.enemyDebugGraphics.setVisible(this.enabled);
+    this.interactableGraphics.setVisible(this.enabled);
     if (!this.enabled) {
       this.clearEnemyLabels();
     }
@@ -149,6 +158,7 @@ export class DebugOverlay {
     this.renderDeadzone();
     this.renderHitboxes();
     this.renderEnemyDebug();
+    this.renderInteractableDebug();
   }
 
   private renderFpsText(): void {
@@ -223,6 +233,15 @@ export class DebugOverlay {
       info += `\nCamera: (${view.x.toFixed(1)}, ${view.y.toFixed(1)}) | Zoom: ${zoom.toFixed(2)}`;
       info += `\nDeadzone: ${dz.width}x${dz.height}`;
     }
+
+    const im = InteractionManager.getInstance();
+    const nearest = im.getNearestInteractable();
+    if (nearest) {
+      info += `\nTarget: ${nearest.getId()} [${nearest.getInteractionPrompt()}]`;
+    } else {
+      info += `\nTarget: None`;
+    }
+    info += `\nInteractables: ${im.getInteractableCount()}`;
 
     this.infoText.setText(info);
   }
@@ -313,17 +332,14 @@ export class DebugOverlay {
 
       const stateColor = STATE_COLORS[info.state] ?? 0xffffff;
 
-      // Vision radius - blue, faint
       this.enemyDebugGraphics.lineStyle(1, 0x4488ff, 0.2);
       this.enemyDebugGraphics.strokeCircle(info.x, info.y, info.visionRadius);
       this.enemyDebugGraphics.fillStyle(0x4488ff, 0.03);
       this.enemyDebugGraphics.fillCircle(info.x, info.y, info.visionRadius);
 
-      // Attack radius - red
       this.enemyDebugGraphics.lineStyle(1, 0xff4444, 0.4);
       this.enemyDebugGraphics.strokeCircle(info.x, info.y, info.attackRadius);
 
-      // Patrol target line (if patrolling)
       if (info.patrolTarget) {
         this.enemyDebugGraphics.lineStyle(1, 0x44aaff, 0.5);
         this.enemyDebugGraphics.beginPath();
@@ -334,7 +350,6 @@ export class DebugOverlay {
         this.enemyDebugGraphics.strokeCircle(info.patrolTarget.x, info.patrolTarget.y, 4);
       }
 
-      // Home position - small diamond
       this.enemyDebugGraphics.lineStyle(1, 0x44ff88, 0.5);
       const hx = info.homePosition.x;
       const hy = info.homePosition.y;
@@ -346,7 +361,6 @@ export class DebugOverlay {
       this.enemyDebugGraphics.closePath();
       this.enemyDebugGraphics.strokePath();
 
-      // Facing direction line
       const facingLen = 20;
       this.enemyDebugGraphics.lineStyle(1, stateColor, 0.6);
       this.enemyDebugGraphics.beginPath();
@@ -357,7 +371,6 @@ export class DebugOverlay {
       );
       this.enemyDebugGraphics.strokePath();
 
-      // Health bar above enemy
       const barW = 28;
       const barH = 3;
       const barX = info.x - barW / 2;
@@ -371,7 +384,6 @@ export class DebugOverlay {
       this.enemyDebugGraphics.fillStyle(hpColor, 0.9);
       this.enemyDebugGraphics.fillRect(barX, barY, barW * hpPct, barH);
 
-      // State label text above enemy
       if (scene) {
         const labelText = `${info.state}${info.isLookingAround ? ' (looking)' : ''}`;
         const hpText = `${info.health}/${info.maxHealth}`;
@@ -382,15 +394,11 @@ export class DebugOverlay {
       }
     }
 
-    // Draw text labels using scene text objects - we use a cached approach
-    // Since we can't create/destroy text objects every frame in graphics,
-    // we draw them via the scene's text system only when enabled
     if (scene && scene.add) {
       this.renderEnemyLabels(debugInfo);
     }
   }
 
-  // Temporary text labels that get cleared and recreated each frame
   private enemyLabels: Phaser.GameObjects.Text[] = [];
   private renderEnemyLabels(debugInfo: import("../../entities/enemies/framework/EnemyManager").EnemyDebugInfo[]): void {
     for (const label of this.enemyLabels) {
@@ -426,6 +434,48 @@ export class DebugOverlay {
     }
   }
 
+  private renderInteractableDebug(): void {
+    this.interactableGraphics.clear();
+
+    const im = InteractionManager.getInstance();
+    const interactables = im.getAllInteractables();
+    const nearest = im.getNearestInteractable();
+
+    for (const int of interactables) {
+      if (!int.isInteractionEnabled()) continue;
+
+      const pos = int.getPosition();
+      const range = int.getInteractionRange();
+
+      const isNearest = nearest === int;
+
+      const color = isNearest ? 0x00ff88 : 0xffaa44;
+      const alpha = isNearest ? 0.5 : 0.2;
+
+      this.interactableGraphics.lineStyle(1, color, alpha);
+      this.interactableGraphics.strokeCircle(pos.x, pos.y, range);
+
+      this.interactableGraphics.fillStyle(color, 0.03);
+      this.interactableGraphics.fillCircle(pos.x, pos.y, range);
+
+      if (int instanceof BaseInteractable) {
+        const bounds = int.getBodyBounds();
+        this.interactableGraphics.lineStyle(isNearest ? 2 : 1, color, isNearest ? 0.8 : 0.4);
+        this.interactableGraphics.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+      }
+
+      if (isNearest) {
+        this.interactableGraphics.lineStyle(1, 0x00ff88, 0.3);
+        this.interactableGraphics.beginPath();
+        this.interactableGraphics.moveTo(pos.x, pos.y);
+        if (this.player) {
+          this.interactableGraphics.lineTo(this.player.x, this.player.y);
+        }
+        this.interactableGraphics.strokePath();
+      }
+    }
+  }
+
   public destroy(): void {
     this.clearEnemyLabels();
     this.container.destroy();
@@ -433,6 +483,7 @@ export class DebugOverlay {
     this.deadzoneGraphics.destroy();
     this.hitboxGraphics.destroy();
     this.enemyDebugGraphics.destroy();
+    this.interactableGraphics.destroy();
     Logger.getInstance().log("[DebugOverlay] Destroyed");
   }
 }

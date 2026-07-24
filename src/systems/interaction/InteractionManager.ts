@@ -91,6 +91,14 @@ export class InteractionManager {
     return this.nearestInteractable;
   }
 
+  public getAllInteractables(): IInteractable[] {
+    return [...this.interactables];
+  }
+
+  public getInteractableCount(): number {
+    return this.interactables.length;
+  }
+
   public destroy(): void {
     if (this.prompt) {
       this.prompt.destroy();
