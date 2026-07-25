@@ -53,7 +53,6 @@ export default class CaveScene extends Phaser.Scene {
     private torchGraphics: Phaser.GameObjects.Graphics[] = [];
     private fogOverlay: Phaser.GameObjects.Graphics | null = null;
     private particleGraphics: Phaser.GameObjects.Graphics | null = null;
-    private particleTimer: number = 0;
     private crateObjects: Crate[] = [];
     private lightableTorches: LightableTorch[] = [];
     private stoneGate: StoneGate | null = null;
@@ -72,12 +71,20 @@ export default class CaveScene extends Phaser.Scene {
     private gateBlockingWalls: WorldObject[] = [];
     private rumblingTimer: number = 0;
     private reachableDeepChamber: boolean = false;
+    private dustParticles: Array<{ x: number; y: number; vx: number; vy: number; alpha: number; size: number }> = [];
+    private fallingPebbles: Array<{ x: number; y: number; vy: number; size: number; color: number }> = [];
+    private pebbleGraphics: Phaser.GameObjects.Graphics | null = null;
+    private pebbleTimer: number = 0;
 
     constructor() {
         super({ key: "CaveScene" });
     }
 
     create(): void {
+        this.dustParticles = [];
+        this.fallingPebbles = [];
+        this.pebbleGraphics = null;
+        this.pebbleTimer = 0;
         this.cameras.main.setBackgroundColor(0x0a0a0a);
         this.cameras.main.fadeIn(1000, 0, 0, 0);
         Logger.getInstance().log("CaveScene started");
@@ -326,7 +333,6 @@ export default class CaveScene extends Phaser.Scene {
         wallG.setDepth(-7);
         this.terrainGraphics.push(wallG);
 
-        this.placeBrokenCart(cx - 80, cy + 30);
         this.placeBrokenCart(cx + 60, cy - 20);
         this.placeFoodBarrel(cx - 40, cy - 60);
         this.placeFoodBarrel(cx + 20, cy + 50);
@@ -439,13 +445,6 @@ export default class CaveScene extends Phaser.Scene {
         this.placeWallTorch(cx - 100, cy + 90);
         this.placeWallTorch(cx + 100, cy - 90);
 
-        const largeFootprintG = this.add.graphics();
-        largeFootprintG.fillStyle(0x3a3a2a, 0.4);
-        largeFootprintG.fillEllipse(cx + 20, cy + 100, 18, 30);
-        largeFootprintG.fillEllipse(cx + 40, cy + 105, 18, 30);
-        largeFootprintG.fillEllipse(cx + 30, cy + 70, 15, 24);
-        largeFootprintG.fillEllipse(cx + 48, cy + 74, 15, 24);
-        largeFootprintG.setDepth(4);
     }
 
     private buildFirePit(): void {
@@ -738,15 +737,7 @@ export default class CaveScene extends Phaser.Scene {
             this.placeBrokenColumn(col.x, col.y, col.fallen);
         }
 
-        const tableG = this.add.graphics();
-        tableG.fillStyle(0x5a5a4a, 1);
-        tableG.fillRect(cx - 50, cy - 8, 100, 16);
-        tableG.fillStyle(0x4a4a3a, 1);
-        tableG.fillRect(cx - 45, cy + 8, 8, 30);
-        tableG.fillRect(cx + 37, cy + 8, 8, 30);
-        tableG.lineStyle(2, 0x3a3a2a, 0.5);
-        tableG.strokeRect(cx - 50, cy - 8, 100, 16);
-        tableG.setDepth(4);
+
 
         const arenaFire = this.add.graphics();
         const fx = cx;
@@ -955,6 +946,269 @@ export default class CaveScene extends Phaser.Scene {
                 },
                 depth: 5,
             },
+            {
+                id: "large_footprints",
+                x: BONE_CHAMBER_CENTER.x + 30,
+                y: BONE_CHAMBER_CENTER.y + 80,
+                width: 40,
+                height: 60,
+                promptText: "[E] Examine footprint",
+                dialogueId: "cave_footprint",
+                drawFn: (g: Phaser.GameObjects.Graphics) => {
+                    g.fillStyle(0x3a3a2a, 0.4);
+                    g.fillEllipse(-10, -10, 9, 15);
+                    g.fillEllipse(10, -5, 9, 15);
+                    g.fillEllipse(0, 20, 7.5, 12);
+                    g.fillEllipse(18, 16, 7.5, 12);
+                },
+                depth: 5,
+            },
+            {
+                id: "bent_spear",
+                x: STORAGE_CENTER.x + 60,
+                y: STORAGE_CENTER.y + 50,
+                width: 24,
+                height: 24,
+                promptText: "[E] Examine bent spear",
+                dialogueId: "cave_spear",
+                drawFn: (g: Phaser.GameObjects.Graphics) => {
+                    g.fillStyle(0x6a4a2a, 1);
+                    g.fillRect(-10, -2, 10, 3);
+                    g.fillRect(-2, -8, 3, 10);
+                    g.fillStyle(0x888888, 1);
+                    g.fillTriangle(-2, -8, 2, -14, 4, -8);
+                },
+                depth: 5,
+            },
+            {
+                id: "broken_amphorae",
+                x: STORAGE_CENTER.x - 90,
+                y: STORAGE_CENTER.y + 70,
+                width: 24,
+                height: 20,
+                promptText: "[E] Examine shards",
+                dialogueId: "cave_amphorae",
+                drawFn: (g: Phaser.GameObjects.Graphics) => {
+                    g.fillStyle(0xa0522d, 1);
+                    g.fillTriangle(-8, -4, -2, -10, -4, 2);
+                    g.fillTriangle(2, -6, 8, -2, 4, 4);
+                    g.fillRect(-3, 2, 6, 4);
+                    g.lineStyle(1, 0x8b4513, 0.5);
+                    g.strokeTriangle(-8, -4, -2, -10, -4, 2);
+                    g.strokeTriangle(2, -6, 8, -2, 4, 4);
+                },
+                depth: 5,
+            },
+            {
+                id: "sheep_bones",
+                x: SHEEP_PEN_CENTER.x + 100,
+                y: SHEEP_PEN_CENTER.y + 30,
+                width: 24,
+                height: 20,
+                promptText: "[E] Examine remains",
+                dialogueId: "cave_sheep_bones",
+                drawFn: (g: Phaser.GameObjects.Graphics) => {
+                    g.fillStyle(0xeeeeee, 1);
+                    g.fillRect(-10, -2, 20, 2);
+                    for (let i = -8; i <= 8; i += 4) {
+                        g.fillRect(i, -8, 2, 14);
+                    }
+                    g.fillStyle(0xdddddd, 1);
+                    g.fillCircle(-11, -1, 3);
+                    g.fillCircle(11, -1, 3);
+                },
+                depth: 5,
+            },
+            {
+                id: "half_eaten_food",
+                x: FIRE_PIT_CENTER.x - 70,
+                y: FIRE_PIT_CENTER.y + 90,
+                width: 26,
+                height: 20,
+                promptText: "[E] Examine carcass",
+                dialogueId: "cave_food",
+                drawFn: (g: Phaser.GameObjects.Graphics) => {
+                    g.fillStyle(0x8b0000, 1);
+                    g.fillCircle(-2, 0, 8);
+                    g.fillStyle(0xa0522d, 1);
+                    g.fillCircle(-2, 0, 6);
+                    g.fillStyle(0xffffff, 1);
+                    g.fillRect(4, -2, 8, 4);
+                    g.fillCircle(12, -2, 2.5);
+                    g.fillCircle(12, 2, 2.5);
+                },
+                depth: 5,
+            },
+            {
+                id: "giant_table",
+                x: BOSS_ARENA_CENTER.x,
+                y: BOSS_ARENA_CENTER.y - 120,
+                width: 100,
+                height: 40,
+                promptText: "[E] Examine table",
+                dialogueId: "cave_table",
+                drawFn: (g: Phaser.GameObjects.Graphics) => {
+                    g.fillStyle(0x5a5a4a, 1);
+                    g.fillRect(-50, -8, 100, 16);
+                    g.fillStyle(0x4a4a3a, 1);
+                    g.fillRect(-45, 8, 8, 30);
+                    g.fillRect(37, 8, 8, 30);
+                    g.lineStyle(2, 0x3a3a2a, 0.5);
+                    g.strokeRect(-50, -8, 100, 16);
+                },
+                depth: 5,
+            },
+            {
+                id: "huge_chair",
+                x: BOSS_ARENA_CENTER.x - 80,
+                y: BOSS_ARENA_CENTER.y - 130,
+                width: 32,
+                height: 32,
+                promptText: "[E] Examine chair",
+                dialogueId: "cave_chair",
+                drawFn: (g: Phaser.GameObjects.Graphics) => {
+                    g.fillStyle(0x4a3a2a, 1);
+                    g.fillRect(-12, -24, 24, 16);
+                    g.fillRect(-12, -8, 24, 6);
+                    g.fillRect(-10, -2, 4, 16);
+                    g.fillRect(6, -2, 4, 16);
+                    g.lineStyle(1, 0x3a2a1a, 0.6);
+                    g.strokeRect(-12, -8, 24, 6);
+                },
+                depth: 5,
+            },
+            {
+                id: "cooking_pot",
+                x: FIRE_PIT_CENTER.x + 60,
+                y: FIRE_PIT_CENTER.y - 60,
+                width: 28,
+                height: 28,
+                promptText: "[E] Examine cauldron",
+                dialogueId: "cave_pot",
+                drawFn: (g: Phaser.GameObjects.Graphics) => {
+                    g.fillStyle(0x1e1e1e, 1);
+                    g.fillCircle(0, 0, 12);
+                    g.fillRect(-14, -8, 28, 4);
+                    g.lineStyle(2, 0x333333, 1);
+                    g.strokeCircle(-12, 0, 4);
+                    g.strokeCircle(12, 0, 4);
+                    g.fillStyle(0x000000, 1);
+                    g.fillCircle(0, 0, 9);
+                },
+                depth: 5,
+            },
+            {
+                id: "torn_cloth",
+                x: SLEEPING_CHAMBER_CENTER.x - 40,
+                y: SLEEPING_CHAMBER_CENTER.y + 40,
+                width: 30,
+                height: 20,
+                promptText: "[E] Examine cloth",
+                dialogueId: "cave_cloth",
+                drawFn: (g: Phaser.GameObjects.Graphics) => {
+                    g.fillStyle(0x5a4a3a, 0.6);
+                    g.fillEllipse(0, 0, 15, 8);
+                    g.fillStyle(0x4a3a2a, 0.8);
+                    g.fillTriangle(-12, 2, -6, -4, -2, 6);
+                    g.fillTriangle(4, -4, 12, 4, 2, 6);
+                },
+                depth: 5,
+            },
+            {
+                id: "blood_stains",
+                x: BONE_CHAMBER_CENTER.x - 40,
+                y: BONE_CHAMBER_CENTER.y + 60,
+                width: 32,
+                height: 24,
+                promptText: "[E] Inspect stains",
+                dialogueId: "cave_blood",
+                drawFn: (g: Phaser.GameObjects.Graphics) => {
+                    g.fillStyle(0x500000, 0.6);
+                    g.fillCircle(-6, -2, 5);
+                    g.fillCircle(4, 4, 7);
+                    g.fillCircle(8, -4, 3);
+                    g.fillRect(-10, 2, 14, 2);
+                },
+                depth: 4,
+            },
+            {
+                id: "burned_campfire",
+                x: FIRE_PIT_CENTER.x,
+                y: FIRE_PIT_CENTER.y + 20,
+                width: 30,
+                height: 30,
+                promptText: "[E] Inspect fire pit",
+                dialogueId: "cave_campfire",
+                drawFn: () => {
+                },
+                depth: 7,
+            },
+            {
+                id: "empty_cages",
+                x: STORAGE_CENTER.x - 140,
+                y: STORAGE_CENTER.y - 40,
+                width: 36,
+                height: 40,
+                promptText: "[E] Examine cage",
+                dialogueId: "cave_cages",
+                drawFn: (g: Phaser.GameObjects.Graphics) => {
+                    g.lineStyle(3, 0x4a3a2a, 1);
+                    g.strokeRect(-16, -20, 32, 40);
+                    g.lineStyle(2, 0x3a2a1a, 0.8);
+                    for (let i = -12; i <= 12; i += 6) {
+                        if (i === 0) continue;
+                        g.lineBetween(i, -20, i, 20);
+                    }
+                    g.lineStyle(2, 0x3a2a1a, 0.5);
+                    g.lineBetween(-6, -10, -2, 5);
+                },
+                depth: 5,
+            },
+            {
+                id: "crushed_cart",
+                x: STORAGE_CENTER.x - 80,
+                y: STORAGE_CENTER.y + 30,
+                width: 44,
+                height: 30,
+                promptText: "[E] Examine wreckage",
+                dialogueId: "cave_cart",
+                drawFn: (g: Phaser.GameObjects.Graphics) => {
+                    g.fillStyle(0x6a4a2a, 1);
+                    g.fillRect(-18, -12, 36, 18);
+                    g.lineStyle(1, 0x4a2a1a, 0.8);
+                    g.strokeRect(-18, -12, 36, 18);
+                    g.fillStyle(0x5a3a1a, 1);
+                    g.fillCircle(-10, 10, 4);
+                    g.fillCircle(10, 10, 4);
+                    g.lineStyle(1, 0x3a1a0a, 0.6);
+                    g.strokeCircle(-10, 10, 4);
+                    g.strokeCircle(10, 10, 4);
+                    g.fillStyle(0x8a6a3a, 1);
+                    g.fillRect(-22, -15, 5, 10);
+                    g.fillRect(17, -15, 5, 10);
+                },
+                depth: 4,
+            },
+            {
+                id: "destroyed_shield_entrance",
+                x: ENTRANCE_CENTER.x + 80,
+                y: ENTRANCE_CENTER.y + 100,
+                width: 22,
+                height: 22,
+                promptText: "[E] Examine shield",
+                dialogueId: "cave_shield",
+                drawFn: (g: Phaser.GameObjects.Graphics) => {
+                    g.fillStyle(0x8a7a5a, 1);
+                    g.fillCircle(0, 0, 8);
+                    g.lineStyle(2, 0x6a5a4a, 0.8);
+                    g.strokeCircle(0, 0, 8);
+                    g.fillStyle(0x6a5a4a, 0.6);
+                    g.fillCircle(0, 0, 4);
+                    g.fillStyle(0x8a7a5a, 0.5);
+                    g.fillRect(-2, -9, 4, 18);
+                },
+                depth: 5,
+            },
         ];
 
         for (const config of propConfigs) {
@@ -1119,7 +1373,7 @@ export default class CaveScene extends Phaser.Scene {
         this.gameStarted = true;
 
         GameStateManager.getInstance().setState(GameState.PLAYING);
-        this.objectiveManager?.setObjective("investigate_cave", "Investigate the cave");
+        this.objectiveManager?.setObjective("investigate_cave", "Investigate the strange remains");
     }
 
     private playerControlEnabled: boolean = false;
@@ -1318,6 +1572,84 @@ export default class CaveScene extends Phaser.Scene {
                     { speaker: "Odysseus", text: "I've never seen a weapon broken like this. The force required..." },
                 ],
             },
+            cave_footprint: {
+                lines: [
+                    { speaker: "Odysseus", text: "A massive footprint pressed deep into the solid earth." },
+                    { speaker: "Odysseus", text: "It's three times the size of my own foot. No man could be this large." },
+                ],
+            },
+            cave_spear: {
+                lines: [
+                    { speaker: "Odysseus", text: "A bronze spear, bent completely out of shape." },
+                    { speaker: "Odysseus", text: "It would take the strength of a team of oxen to buckle metal this thick." },
+                ],
+            },
+            cave_amphorae: {
+                lines: [
+                    { speaker: "Odysseus", text: "Terracotta jars, smashed to pieces. The contents have dried up." },
+                    { speaker: "Odysseus", text: "They look like they were crushed underfoot, like dry clay." },
+                ],
+            },
+            cave_sheep_bones: {
+                lines: [
+                    { speaker: "Odysseus", text: "The carcass of a sheep... or what remains of it." },
+                    { speaker: "Odysseus", text: "The bones have been gnawed and snapped to get to the marrow." },
+                ],
+            },
+            cave_food: {
+                lines: [
+                    { speaker: "Odysseus", text: "A huge chunk of roasted meat, half-devoured and left to rot." },
+                    { speaker: "Odysseus", text: "This looks like an entire sheep's hind leg... eaten in a few bites." },
+                ],
+            },
+            cave_table: {
+                lines: [
+                    { speaker: "Odysseus", text: "A colossal wooden table, crude but incredibly heavy." },
+                    { speaker: "Odysseus", text: "No ordinary mortal could sit and dine at a table this high." },
+                ],
+            },
+            cave_chair: {
+                lines: [
+                    { speaker: "Odysseus", text: "A chair carved from a massive tree trunk." },
+                    { speaker: "Odysseus", text: "The scale of it... whoever sits here must be ten cubits tall." },
+                ],
+            },
+            cave_pot: {
+                lines: [
+                    { speaker: "Odysseus", text: "A massive bronze cauldron, large enough to bathe three men." },
+                    { speaker: "Odysseus", text: "The inside is coated in ash and grease. It is regularly used." },
+                ],
+            },
+            cave_cloth: {
+                lines: [
+                    { speaker: "Odysseus", text: "A pile of coarse, woven fabric, smelling of sweat and wild animals." },
+                    { speaker: "Odysseus", text: "It looks like a giant's simple tunic or blanket." },
+                ],
+            },
+            cave_blood: {
+                lines: [
+                    { speaker: "Odysseus", text: "Dried blood stains, dark and thick, covering the stone floor." },
+                    { speaker: "Odysseus", text: "This blood did not come from sheep. We must be extremely cautious." },
+                ],
+            },
+            cave_campfire: {
+                lines: [
+                    { speaker: "Odysseus", text: "A massive fire pit. The embers are hot and crackling." },
+                    { speaker: "Odysseus", text: "Whoever lit this campfire cannot have gone far." },
+                ],
+            },
+            cave_cages: {
+                lines: [
+                    { speaker: "Odysseus", text: "A crude cage made of thick pine branches. The door is broken." },
+                    { speaker: "Odysseus", text: "The space inside is large enough to hold several sheep... or men." },
+                ],
+            },
+            cave_cart: {
+                lines: [
+                    { speaker: "Odysseus", text: "A wooden cart, crushed flat as if someone stepped on it." },
+                    { speaker: "Odysseus", text: "The heavy axle is snapped like a twig." },
+                ],
+            },
         };
 
         const data = dialogues[dialogueId];
@@ -1334,7 +1666,7 @@ export default class CaveScene extends Phaser.Scene {
         if (!this.reachableDeepChamber && px > SHEEP_PEN_CENTER.x - 50) {
             this.reachableDeepChamber = true;
             this.objectiveManager?.completeObjective("investigate_cave");
-            this.objectiveManager?.setObjective("find_survivors", "Search for survivors");
+            this.objectiveManager?.setObjective("find_survivors", "Search for signs of survivors");
         }
 
         if (this.crewFound && !this.crateMoved && !this.objectiveManager?.hasObjective("clear_passage") && !this.objectiveManager?.getCurrentObjective()) {
@@ -1596,40 +1928,104 @@ export default class CaveScene extends Phaser.Scene {
 
         const px = this.player.x;
 
-        let fogIntensity = 0.3;
-        if (px > 3500) {
-            fogIntensity = 0.35 + (px - 3500) / 1000 * 0.1;
+        // 1. Soft cave fog scaling with depth
+        let fogIntensity = 0.25;
+        if (px > 1000) {
+            fogIntensity = 0.25 + Math.min(((px - 1000) / 3000) * 0.3, 0.3);
         }
-        fogIntensity = Math.min(fogIntensity, 0.5);
-
         this.fogOverlay.clear();
-        this.fogOverlay.fillStyle(0x0a0a0a, fogIntensity);
+        this.fogOverlay.fillStyle(0x05050a, fogIntensity);
         this.fogOverlay.fillRect(0, 0, GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT);
 
-        this.particleTimer += delta;
-        if (this.particleTimer > 100) {
-            this.particleTimer = 0;
-            if (!this.particleGraphics) {
-                this.particleGraphics = this.add.graphics();
-                this.particleGraphics.setScrollFactor(1);
-                this.particleGraphics.setDepth(951);
+        // 2. Dust particles system using screen coordinates space
+        if (!this.particleGraphics) {
+            this.particleGraphics = this.add.graphics();
+            this.particleGraphics.setScrollFactor(0);
+            this.particleGraphics.setDepth(951);
+        }
+        if (this.dustParticles.length === 0) {
+            for (let i = 0; i < 40; i++) {
+                this.dustParticles.push({
+                    x: Phaser.Math.Between(0, GAME_CONFIG.WIDTH),
+                    y: Phaser.Math.Between(0, GAME_CONFIG.HEIGHT),
+                    vx: Phaser.Math.Between(-15, 15),
+                    vy: Phaser.Math.Between(10, 25),
+                    alpha: Phaser.Math.FloatBetween(0.1, 0.25),
+                    size: Phaser.Math.FloatBetween(1, 3.5),
+                });
             }
-            this.particleGraphics.clear();
-            const particleCount = 8;
-            for (let i = 0; i < particleCount; i++) {
-                const wx = px + Phaser.Math.Between(-400, 400);
-                const wy = Phaser.Math.Between(0, GAME_CONFIG.HEIGHT);
-                const screenX = wx - this.cameras.main.scrollX;
-                const s = Phaser.Math.Between(1, 3);
-                this.particleGraphics.fillStyle(0x888877, 0.08 + Math.random() * 0.12);
-                this.particleGraphics.fillCircle(screenX, wy, s);
+        }
+        this.particleGraphics.clear();
+        for (const p of this.dustParticles) {
+            p.x += p.vx * (delta / 1000);
+            p.y += p.vy * (delta / 1000);
+
+            if (p.y > GAME_CONFIG.HEIGHT) {
+                p.y = 0;
+                p.x = Phaser.Math.Between(0, GAME_CONFIG.WIDTH);
+            }
+            if (p.x < 0 || p.x > GAME_CONFIG.WIDTH) {
+                p.x = p.x < 0 ? GAME_CONFIG.WIDTH : 0;
+            }
+
+            this.particleGraphics.fillStyle(0xccccaa, p.alpha);
+            this.particleGraphics.fillCircle(p.x, p.y, p.size);
+        }
+
+        // 3. Falling Pebbles effect
+        this.pebbleTimer += delta;
+        if (this.pebbleTimer > 12000) {
+            this.pebbleTimer = 0;
+            const spawnX = px + Phaser.Math.Between(-300, 300);
+            for (let i = 0; i < Phaser.Math.Between(3, 7); i++) {
+                this.fallingPebbles.push({
+                    x: spawnX + Phaser.Math.Between(-30, 30),
+                    y: Phaser.Math.Between(-50, 0),
+                    vy: Phaser.Math.Between(200, 350),
+                    size: Phaser.Math.FloatBetween(1.5, 3),
+                    color: 0x5a5a4a,
+                });
             }
         }
 
+        if (this.fallingPebbles.length > 0) {
+            if (!this.pebbleGraphics) {
+                this.pebbleGraphics = this.add.graphics();
+                this.pebbleGraphics.setScrollFactor(1);
+                this.pebbleGraphics.setDepth(940);
+            }
+            this.pebbleGraphics.clear();
+
+            for (let i = this.fallingPebbles.length - 1; i >= 0; i--) {
+                const pebble = this.fallingPebbles[i];
+                pebble.y += pebble.vy * (delta / 1000);
+
+                this.pebbleGraphics.fillStyle(pebble.color, 0.7);
+                this.pebbleGraphics.fillCircle(pebble.x, pebble.y, pebble.size);
+
+                if (pebble.y > CAVE_H) {
+                    this.fallingPebbles.splice(i, 1);
+                }
+            }
+        }
+
+        // 4. Subtle camera shakes and rumble tremors synced with falling pebbles clusters
         this.rumblingTimer += delta;
-        if (this.rumblingTimer > 8000 && this.gameStarted) {
+        if (this.rumblingTimer > 25000 && this.gameStarted) {
             this.rumblingTimer = 0;
-            this.cameraManager?.shake({ intensity: 3, duration: 300 });
+            this.cameras.main.shake(500, 0.003);
+
+            const spawnX = px + Phaser.Math.Between(-200, 200);
+            for (let i = 0; i < Phaser.Math.Between(5, 10); i++) {
+                this.fallingPebbles.push({
+                    x: spawnX + Phaser.Math.Between(-50, 50),
+                    y: Phaser.Math.Between(-50, 0),
+                    vy: Phaser.Math.Between(180, 320),
+                    size: Phaser.Math.FloatBetween(1.5, 3.5),
+                    color: 0x5a5a4a,
+                });
+            }
+
             if (Math.random() < 0.3) {
                 try {
                     const audioCache = this.cache.audio;
@@ -1641,13 +2037,12 @@ export default class CaveScene extends Phaser.Scene {
             }
         }
 
+        // 5. Smooth flame flicker
         for (let i = 0; i < this.torchGraphics.length; i++) {
             const g = this.torchGraphics[i];
-            if (g && Math.random() < 0.04) {
-                g.setVisible(false);
-                this.time.delayedCall(40, () => {
-                    if (g) g.setVisible(true);
-                });
+            if (g) {
+                const flicker = 0.85 + Math.random() * 0.15;
+                g.setAlpha(flicker);
             }
         }
     }
