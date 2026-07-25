@@ -19,7 +19,10 @@ export class CollisionManager {
   }
 
   public initialize(scene: Phaser.Scene): void {
-    if (this.initialized) return;
+    if (this.initialized && this.scene === scene) return;
+    if (this.initialized) {
+      this.destroy();
+    }
     this.scene = scene;
     this.objectGroup = scene.physics.add.staticGroup();
     this.initialized = true;

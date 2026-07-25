@@ -43,7 +43,10 @@ export class DialogueManager {
   }
 
   public initialize(scene: Phaser.Scene): void {
-    if (this.initialized) return;
+    if (this.initialized && this.scene === scene) return;
+    if (this.initialized) {
+      this.destroy();
+    }
     this.scene = scene;
     this.box = new DialogueBox(scene);
     this.initialized = true;

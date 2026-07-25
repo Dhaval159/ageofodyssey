@@ -13,6 +13,7 @@ export class ObjectiveManager {
   private widget: ObjectiveWidget | null = null;
   private currentObjective: Objective | null = null;
   private completedObjectives: Objective[] = [];
+  private currentScene: Phaser.Scene | null = null;
   private initialized: boolean = false;
 
   private constructor() {}
@@ -25,8 +26,17 @@ export class ObjectiveManager {
   }
 
   public initialize(scene: Phaser.Scene): void {
-    if (this.initialized) return;
+    if (this.initialized && this.currentScene === scene) return;
+
+    if (this.widget) {
+      this.widget.destroy();
+      this.widget = null;
+    }
     this.widget = new ObjectiveWidget(scene);
+    if (this.currentObjective && !this.currentObjective.completed) {
+      this.widget.show(this.currentObjective.text);
+    }
+    this.currentScene = scene;
     this.initialized = true;
     Logger.getInstance().log("[ObjectiveManager] Initialized");
   }
@@ -72,6 +82,7 @@ export class ObjectiveManager {
     }
     this.currentObjective = null;
     this.completedObjectives = [];
+    this.currentScene = null;
     this.initialized = false;
     Logger.getInstance().log("[ObjectiveManager] Destroyed");
   }
