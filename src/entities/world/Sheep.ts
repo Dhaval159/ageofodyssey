@@ -10,6 +10,8 @@ export class Sheep extends Phaser.GameObjects.Container implements IInteractable
     private wanderBounds: { minX: number; maxX: number; minY: number; maxY: number };
     private bobOffset: number = 0;
     private flashed: boolean = false;
+    private state: "idle" | "graze" | "wander" | "flee" = "idle";
+    private fleeTimer: number = 0;
 
     constructor(
         scene: Phaser.Scene,
@@ -132,31 +134,36 @@ export class Sheep extends Phaser.GameObjects.Container implements IInteractable
         this.bobOffset += dt * 2;
         this.bodyGraphics.y = Math.sin(this.bobOffset) * 1.5;
 
-        this.restTime -= delta;
+        // Check distance to player to trigger flee behavior
+        const player = (this.scene as any).player;
+        if (player) {
+            const dx = this.x - player.x;
+            const dy = this.y - player.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
 
-        if (this.isResting) {
-            if (this.restTime <= 0) {
-                this.isResting = false;
-                this.moveDirection = {
-                    x: Phaser.Math.Between(-1, 1),
-                    y: Phaser.Math.Between(-1, 1),
-                };
-                // Normalize diagonal
-                const len = Math.sqrt(
-                    this.moveDirection.x ** 2 + this.moveDirection.y ** 2
-                );
-                if (len > 0) {
-                    this.moveDirection.x /= len;
-                    this.moveDirection.y /= len;
+            if (dist < 100) {
+                if (this.state !== "flee") {
+                    this.state = "flee";
+                    if (Math.random() < 0.3 && !this.flashed) {
+                        this.interact();
+                    }
                 }
-                this.restTime = Phaser.Math.Between(1500, 4000);
+                this.fleeTimer = 2000; // Flee for at least 2 seconds
+                
+                const len = Math.sqrt(dx * dx + dy * dy);
+                if (len > 0) {
+                    this.moveDirection = { x: dx / len, y: dy / len };
+                }
             }
-        } else {
-            // Move
-            const newX = this.x + this.moveDirection.x * this.moveSpeed * dt;
-            const newY = this.y + this.moveDirection.y * this.moveSpeed * dt;
+        }
 
-            // Bounds check
+        if (this.state === "flee") {
+            this.fleeTimer -= delta;
+
+            const runSpeed = 80;
+            const newX = this.x + this.moveDirection.x * runSpeed * dt;
+            const newY = this.y + this.moveDirection.y * runSpeed * dt;
+
             if (
                 newX >= this.wanderBounds.minX &&
                 newX <= this.wanderBounds.maxX &&
@@ -166,14 +173,73 @@ export class Sheep extends Phaser.GameObjects.Container implements IInteractable
                 this.x = newX;
                 this.y = newY;
             } else {
+                this.state = "idle";
+            }
+
+            if (this.fleeTimer <= 0) {
+                this.state = "idle";
                 this.isResting = true;
                 this.restTime = Phaser.Math.Between(1000, 3000);
             }
-
+        } else {
             this.restTime -= delta;
-            if (this.restTime <= 0) {
-                this.isResting = true;
-                this.restTime = Phaser.Math.Between(1000, 3000);
+
+            if (this.isResting) {
+                if (this.restTime <= 0) {
+                    this.isResting = false;
+                    
+                    if (Math.random() < 0.6) {
+                        this.state = "wander";
+                        this.moveDirection = {
+                            x: Phaser.Math.Between(-1, 1),
+                            y: Phaser.Math.Between(-1, 1),
+                        };
+                        const len = Math.sqrt(
+                            this.moveDirection.x ** 2 + this.moveDirection.y ** 2
+                        );
+                        if (len > 0) {
+                            this.moveDirection.x /= len;
+                            this.moveDirection.y /= len;
+                        }
+                        this.restTime = Phaser.Math.Between(1500, 4000);
+                    } else {
+                        this.state = "graze";
+                        this.restTime = Phaser.Math.Between(2000, 5000);
+                        
+                        this.scene.tweens.add({
+                            targets: this.bodyGraphics,
+                            y: 3,
+                            duration: 300,
+                            yoyo: true,
+                            repeat: 2,
+                            ease: "Sine.easeInOut"
+                        });
+                    }
+                }
+            } else {
+                if (this.state === "wander") {
+                    const newX = this.x + this.moveDirection.x * this.moveSpeed * dt;
+                    const newY = this.y + this.moveDirection.y * this.moveSpeed * dt;
+
+                    if (
+                        newX >= this.wanderBounds.minX &&
+                        newX <= this.wanderBounds.maxX &&
+                        newY >= this.wanderBounds.minY &&
+                        newY <= this.wanderBounds.maxY
+                    ) {
+                        this.x = newX;
+                        this.y = newY;
+                    } else {
+                        this.isResting = true;
+                        this.restTime = Phaser.Math.Between(1000, 3000);
+                    }
+                }
+
+                if (this.restTime <= 0) {
+                    this.isResting = true;
+                    this.restTime = Phaser.Math.Between(1000, 3000);
+                    this.state = "idle";
+                }
             }
         }
     }

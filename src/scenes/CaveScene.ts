@@ -1209,6 +1209,72 @@ export default class CaveScene extends Phaser.Scene {
                 },
                 depth: 5,
             },
+            {
+                id: "cave_hay",
+                x: SHEEP_PEN_CENTER.x - 80,
+                y: SHEEP_PEN_CENTER.y - 40,
+                width: 32,
+                height: 24,
+                promptText: "[E] Examine hay pile",
+                dialogueId: "cave_hay",
+                drawFn: (g: Phaser.GameObjects.Graphics) => {
+                    g.fillStyle(0xccaa44, 0.9);
+                    g.fillEllipse(0, 0, 16, 10);
+                    g.fillTriangle(-12, 4, 0, -8, -4, 4);
+                    g.fillTriangle(0, 4, 12, 4, 4, -6);
+                },
+                depth: 5,
+            },
+            {
+                id: "cave_gate",
+                x: SHEEP_PEN_CENTER.x + 130,
+                y: SHEEP_PEN_CENTER.y,
+                width: 32,
+                height: 32,
+                promptText: "[E] Examine gate",
+                dialogueId: "cave_gate",
+                drawFn: (g: Phaser.GameObjects.Graphics) => {
+                    g.fillStyle(0x5a4a3a, 1);
+                    g.fillRect(-15, -12, 6, 24);
+                    g.fillRect(9, -12, 6, 24);
+                    g.fillStyle(0x4a3a2a, 0.8);
+                    g.fillRect(-12, -8, 24, 4);
+                    g.fillRect(-12, 4, 24, 4);
+                },
+                depth: 5,
+            },
+            {
+                id: "cave_bucket",
+                x: SHEEP_PEN_CENTER.x + 60,
+                y: SHEEP_PEN_CENTER.y - 60,
+                width: 20,
+                height: 20,
+                promptText: "[E] Examine water bucket",
+                dialogueId: "cave_bucket",
+                drawFn: (g: Phaser.GameObjects.Graphics) => {
+                    g.fillStyle(0x777777, 1);
+                    g.fillRect(-8, -6, 16, 12);
+                    g.fillStyle(0x4488ff, 1);
+                    g.fillRect(-7, -5, 14, 2);
+                },
+                depth: 5,
+            },
+            {
+                id: "cave_blanket",
+                x: SLEEPING_CHAMBER_CENTER.x + 50,
+                y: SLEEPING_CHAMBER_CENTER.y - 40,
+                width: 24,
+                height: 20,
+                promptText: "[E] Examine blanket",
+                dialogueId: "cave_blanket",
+                drawFn: (g: Phaser.GameObjects.Graphics) => {
+                    g.fillStyle(0x5a4a3a, 1);
+                    g.fillEllipse(0, 0, 20, 10);
+                    g.lineStyle(1, 0x3a2a1a, 0.6);
+                    g.strokeEllipse(0, 0, 20, 10);
+                },
+                depth: 5,
+            },
         ];
 
         for (const config of propConfigs) {
@@ -1487,7 +1553,7 @@ export default class CaveScene extends Phaser.Scene {
         this.gateBlockingWalls = [];
 
         this.objectiveManager?.completeObjective("light_torches");
-        this.objectiveManager?.setObjective("reach_deepest", "Reach the deepest chamber");
+        this.objectiveManager?.setObjective("search_deeper", "Search deeper into the cave");
 
         this.checkpoints?.activateCheckpoint("deep_cave");
 
@@ -1504,12 +1570,9 @@ export default class CaveScene extends Phaser.Scene {
         const dialogues: Record<string, { lines: Array<{ speaker: string; text: string }> }> = {
             frightened_crew: {
                 lines: [
-                    { speaker: "Polites", text: "Captain! You made it... I thought I was the last one." },
-                    { speaker: "Polites", text: "He comes back every night... the ground shakes, and we just hide in the darkness." },
-                    { speaker: "Polites", text: "The others... he took them. One by one. There's nothing we could do." },
-                    { speaker: "Polites", text: "There's a deeper chamber past the fire pit. A stone gate blocks the way. I couldn't open it." },
-                    { speaker: "Polites", text: "Be careful, Captain. Something ancient lives in these caves." },
-                    { speaker: "Odysseus", text: "Rest here. I'll find a way through." },
+                    { speaker: "Polites", text: "Keep your voice down... Captain, please, not so loud." },
+                    { speaker: "Polites", text: "He sleeps deeper inside... the One-Eyed giant. He devours everything." },
+                    { speaker: "Polites", text: "We cannot fight him... our swords did nothing. We must find another way." },
                 ],
             },
         };
@@ -1520,9 +1583,8 @@ export default class CaveScene extends Phaser.Scene {
         if (!this.crewFound) {
             this.crewFound = true;
             this.objectiveManager?.completeObjective("find_survivors");
-            if (!this.crateMoved) {
-                this.objectiveManager?.setObjective("clear_passage", "Find another route through the cave");
-            }
+            this.objectiveManager?.setObjective("search_deeper", "Search deeper into the cave");
+            this.checkpoints?.activateCheckpoint("deep_cave");
         }
 
         this.dialogueManager?.start({ lines: data.lines });
@@ -1650,6 +1712,26 @@ export default class CaveScene extends Phaser.Scene {
                     { speaker: "Odysseus", text: "The heavy axle is snapped like a twig." },
                 ],
             },
+            cave_hay: {
+                lines: [
+                    { speaker: "Odysseus", text: "A pile of fresh hay for the sheep. Coarse and dry." },
+                ],
+            },
+            cave_gate: {
+                lines: [
+                    { speaker: "Odysseus", text: "A crude wooden gate. It's built on a scale that only a giant could easily lift." },
+                ],
+            },
+            cave_bucket: {
+                lines: [
+                    { speaker: "Odysseus", text: "A huge wooden bucket filled with murky water. It's deep enough to drown a child." },
+                ],
+            },
+            cave_blanket: {
+                lines: [
+                    { speaker: "Odysseus", text: "A massive, filthy animal hide used as a blanket. The smell of grease is overpowering." },
+                ],
+            },
         };
 
         const data = dialogues[dialogueId];
@@ -1666,7 +1748,7 @@ export default class CaveScene extends Phaser.Scene {
         if (!this.reachableDeepChamber && px > SHEEP_PEN_CENTER.x - 50) {
             this.reachableDeepChamber = true;
             this.objectiveManager?.completeObjective("investigate_cave");
-            this.objectiveManager?.setObjective("find_survivors", "Search for signs of survivors");
+            this.objectiveManager?.setObjective("find_survivors", "Find survivors");
         }
 
         if (this.crewFound && !this.crateMoved && !this.objectiveManager?.hasObjective("clear_passage") && !this.objectiveManager?.getCurrentObjective()) {
@@ -1675,7 +1757,7 @@ export default class CaveScene extends Phaser.Scene {
 
         if (!this.bossArenaReached && this.gateOpened && px > SLEEPING_CHAMBER_CENTER.x) {
             this.bossArenaReached = true;
-            this.objectiveManager?.completeObjective("reach_deepest");
+            this.objectiveManager?.completeObjective("search_deeper");
             this.checkpoints?.activateCheckpoint("before_boss");
 
             const arenaText = this.add.text(
@@ -2044,6 +2126,15 @@ export default class CaveScene extends Phaser.Scene {
                 const flicker = 0.85 + Math.random() * 0.15;
                 g.setAlpha(flicker);
             }
+        }
+
+        // 6. Occasional sheep baa sounds near the sheep pen area
+        if (this.gameStarted && Math.abs(px - SHEEP_PEN_CENTER.x) < 400 && Math.random() < 0.002) {
+            try {
+                if (this.sound && this.cache.audio.has("sheep_baa")) {
+                    this.sound.play("sheep_baa", { volume: 0.1 });
+                }
+            } catch {}
         }
     }
 
