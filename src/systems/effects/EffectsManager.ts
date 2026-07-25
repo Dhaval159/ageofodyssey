@@ -89,6 +89,24 @@ export class EffectsManager {
     }
   }
 
+  public emitRockDebris(x: number, y: number, count: number = 10): void {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 40 + Math.random() * 160;
+      this.particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 60,
+        lifetime: 0.4 + Math.random() * 0.4,
+        maxLifetime: 0.8,
+        size: 3 + Math.random() * 5,
+        color: Math.random() > 0.5 ? 0x8a8a7a : 0x6a6a5a,
+        alpha: 1,
+        type: 'spark',
+      });
+    }
+  }
+
   public emitFootstepDust(x: number, y: number): void {
     for (let i = 0; i < 2; i++) {
       this.particles.push({

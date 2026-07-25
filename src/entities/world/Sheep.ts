@@ -10,7 +10,7 @@ export class Sheep extends Phaser.GameObjects.Container implements IInteractable
     private wanderBounds: { minX: number; maxX: number; minY: number; maxY: number };
     private bobOffset: number = 0;
     private flashed: boolean = false;
-    private state: "idle" | "graze" | "wander" | "flee" = "idle";
+    private sheepState: "idle" | "graze" | "wander" | "flee" = "idle";
     private fleeTimer: number = 0;
 
     constructor(
@@ -142,8 +142,8 @@ export class Sheep extends Phaser.GameObjects.Container implements IInteractable
             const dist = Math.sqrt(dx * dx + dy * dy);
 
             if (dist < 100) {
-                if (this.state !== "flee") {
-                    this.state = "flee";
+                if (this.sheepState !== "flee") {
+                    this.sheepState = "flee";
                     if (Math.random() < 0.3 && !this.flashed) {
                         this.interact();
                     }
@@ -157,7 +157,7 @@ export class Sheep extends Phaser.GameObjects.Container implements IInteractable
             }
         }
 
-        if (this.state === "flee") {
+        if (this.sheepState === "flee") {
             this.fleeTimer -= delta;
 
             const runSpeed = 80;
@@ -173,11 +173,11 @@ export class Sheep extends Phaser.GameObjects.Container implements IInteractable
                 this.x = newX;
                 this.y = newY;
             } else {
-                this.state = "idle";
+                this.sheepState = "idle";
             }
 
             if (this.fleeTimer <= 0) {
-                this.state = "idle";
+                this.sheepState = "idle";
                 this.isResting = true;
                 this.restTime = Phaser.Math.Between(1000, 3000);
             }
@@ -189,7 +189,7 @@ export class Sheep extends Phaser.GameObjects.Container implements IInteractable
                     this.isResting = false;
                     
                     if (Math.random() < 0.6) {
-                        this.state = "wander";
+                        this.sheepState = "wander";
                         this.moveDirection = {
                             x: Phaser.Math.Between(-1, 1),
                             y: Phaser.Math.Between(-1, 1),
@@ -203,7 +203,7 @@ export class Sheep extends Phaser.GameObjects.Container implements IInteractable
                         }
                         this.restTime = Phaser.Math.Between(1500, 4000);
                     } else {
-                        this.state = "graze";
+                        this.sheepState = "graze";
                         this.restTime = Phaser.Math.Between(2000, 5000);
                         
                         this.scene.tweens.add({
@@ -217,7 +217,7 @@ export class Sheep extends Phaser.GameObjects.Container implements IInteractable
                     }
                 }
             } else {
-                if (this.state === "wander") {
+                if (this.sheepState === "wander") {
                     const newX = this.x + this.moveDirection.x * this.moveSpeed * dt;
                     const newY = this.y + this.moveDirection.y * this.moveSpeed * dt;
 
@@ -238,7 +238,7 @@ export class Sheep extends Phaser.GameObjects.Container implements IInteractable
                 if (this.restTime <= 0) {
                     this.isResting = true;
                     this.restTime = Phaser.Math.Between(1000, 3000);
-                    this.state = "idle";
+                    this.sheepState = "idle";
                 }
             }
         }

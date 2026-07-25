@@ -24,6 +24,9 @@ import { Sheep } from "../entities/world/Sheep";
 import { Crate } from "../entities/world/Crate";
 import { LightableTorch } from "../entities/world/LightableTorch";
 import { StoneGate } from "../entities/world/StoneGate";
+import { BossEncounterController } from "../entities/bosses/framework/BossEncounterController";
+import { EnemyManager } from "../entities/enemies/framework/EnemyManager";
+import { EffectsManager } from "../systems/effects/EffectsManager";
 
 const CAVE_W = 4500;
 const CAVE_H = 2200;
@@ -38,6 +41,9 @@ const SLEEPING_CHAMBER_CENTER = { x: 3600, y: 700 };
 const BOSS_ARENA_CENTER = { x: 4100, y: 1000 };
 
 export default class CaveScene extends Phaser.Scene {
+    public bossEncounterController: BossEncounterController | null = null;
+    private debugDamageKey: Phaser.Input.Keyboard.Key | null = null;
+    private isRespawning: boolean = false;
     private player: Player | null = null;
     private cameraManager: CameraManager | null = null;
     private debugOverlay: DebugOverlay | null = null;
@@ -67,7 +73,6 @@ export default class CaveScene extends Phaser.Scene {
     private campfireG: Phaser.GameObjects.Graphics | null = null;
     private campfirePos: { x: number; y: number } = { x: 0, y: 0 };
     private campfireFlickerTimer: number = 0;
-    private arenaGateObjs: WorldObject[] = [];
     private gateBlockingWalls: WorldObject[] = [];
     private rumblingTimer: number = 0;
     private reachableDeepChamber: boolean = false;
@@ -75,22 +80,21 @@ export default class CaveScene extends Phaser.Scene {
     private fallingPebbles: Array<{ x: number; y: number; vy: number; size: number; color: number }> = [];
     private pebbleGraphics: Phaser.GameObjects.Graphics | null = null;
     private pebbleTimer: number = 0;
-    private arenaEntered: boolean = false;
-    private cutsceneTriggered: boolean = false;
-    private arenaEntranceGateObj: WorldObject | null = null;
-    private entryTriggerZone: Phaser.GameObjects.Zone | null = null;
-    private arenaCutsceneZone: Phaser.GameObjects.Zone | null = null;
 
     constructor() {
         super({ key: "CaveScene" });
     }
 
     create(): void {
-        this.arenaEntered = false;
-        this.cutsceneTriggered = false;
-        this.arenaEntranceGateObj = null;
-        this.entryTriggerZone = null;
-        this.arenaCutsceneZone = null;
+        if (this.bossEncounterController) {
+            this.bossEncounterController.destroy();
+            this.bossEncounterController = null;
+        }
+
+        if (this.input.keyboard) {
+            this.debugDamageKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F4);
+        }
+
         this.dustParticles = [];
         this.fallingPebbles = [];
         this.pebbleGraphics = null;
@@ -107,6 +111,8 @@ export default class CaveScene extends Phaser.Scene {
         });
 
         CombatManager.getInstance().initialize();
+        EnemyManager.getInstance().initialize();
+        EffectsManager.getInstance().initialize(this);
 
         this.collisionManager = CollisionManager.getInstance();
         this.collisionManager.initialize(this);
@@ -716,142 +722,148 @@ export default class CaveScene extends Phaser.Scene {
     }
 
     private buildBossArena(): void {
-        const cx = BOSS_ARENA_CENTER.x;
-        const cy = BOSS_ARENA_CENTER.y;
+        this.bossEncounterController = new BossEncounterController(this, {
+            bossId: "cyclops",
+            bossName: "The Cyclops",
+            maxHp: 1000,
+            phaseThresholds: {
+                phase2: 0.7,
+                phase3: 0.3,
+                enrage: 0.1
+            },
+            checkpointId: "before_boss",
+            musicKeys: {
+                theme: "music-boss",
+                enraged: "music-boss"
+            },
+            defeatDialogueLines: [
+                { speaker: "Eurylochus", text: "We did it! The giant lies defeated!" },
+                { speaker: "Odysseus", text: "Do not celebrate yet. We must find the exit." }
+            ],
+            arenaConfig: {
+                centerX: BOSS_ARENA_CENTER.x,
+                centerY: BOSS_ARENA_CENTER.y,
+                radius: 280,
+                playerSpawnX: SLEEPING_CHAMBER_CENTER.x + 100,
+                playerSpawnY: SLEEPING_CHAMBER_CENTER.y,
+                bossSpawnX: BOSS_ARENA_CENTER.x,
+                bossSpawnY: BOSS_ARENA_CENTER.y
+            },
+            introCutsceneSteps: [
+                {
+                    type: "PAN",
+                    params: { x: BOSS_ARENA_CENTER.x, y: BOSS_ARENA_CENTER.y - 120, duration: 2000 }
+                },
+                {
+                    type: "ZOOM",
+                    params: { zoom: 1.2, duration: 2000 }
+                },
+                {
+                    type: "WAIT",
+                    params: { duration: 2500 }
+                },
+                {
+                    type: "PAN",
+                    params: { x: BOSS_ARENA_CENTER.x - 230, y: BOSS_ARENA_CENTER.y, duration: 2000 }
+                },
+                {
+                    type: "ZOOM",
+                    params: { zoom: 1.0, duration: 2000 }
+                },
+                {
+                    type: "WAIT",
+                    params: { duration: 2500 }
+                },
+                {
+                    type: "DIALOGUE",
+                    params: {
+                        lines: [
+                            { speaker: "Eurylochus", text: "...Where is he? It's too quiet." },
+                            { speaker: "Odysseus", text: "Stay quiet. Look at the size of this place..." }
+                        ]
+                    }
+                },
+                {
+                    type: "SHAKE",
+                    params: { duration: 2000, intensity: 0.008, wait: false }
+                },
+                {
+                    type: "SFX",
+                    params: { key: "rumble", volume: 0.35 }
+                },
+                {
+                    type: "PARTICLES",
+                    params: {
+                        trigger: (scene: Phaser.Scene) => {
+                            const caveScene = scene as any;
+                            for (let i = 0; i < 25; i++) {
+                                scene.time.delayedCall(Phaser.Math.Between(0, 1500), () => {
+                                    const spawnX = BOSS_ARENA_CENTER.x + Phaser.Math.Between(-300, 300);
+                                    caveScene.fallingPebbles.push({
+                                        x: spawnX,
+                                        y: Phaser.Math.Between(-50, 0),
+                                        vy: Phaser.Math.Between(250, 450),
+                                        size: Phaser.Math.FloatBetween(2.0, 4.5),
+                                        color: 0x5a5a4a
+                                    });
+                                });
+                            }
+                        }
+                    }
+                },
+                {
+                    type: "WAIT",
+                    params: { duration: 1500 }
+                },
+                {
+                    type: "FADE",
+                    params: { direction: "out", duration: 1000, color: 0x000000 }
+                },
+                {
+                    type: "WAIT",
+                    params: { duration: 100 }
+                },
+                {
+                    type: "CUSTOM",
+                    params: {
+                        action: (scene: Phaser.Scene, next: () => void) => {
+                            const revealText = scene.add.text(
+                                GAME_CONFIG.WIDTH / 2,
+                                GAME_CONFIG.HEIGHT / 2,
+                                "The Cyclops approaches...",
+                                {
+                                    fontSize: "28px",
+                                    color: "#ff3333",
+                                    stroke: "#000000",
+                                    strokeThickness: 5,
+                                    fontStyle: "bold"
+                                }
+                            );
+                            revealText.setOrigin(0.5);
+                            revealText.setScrollFactor(0);
+                            revealText.setDepth(2000);
+                            revealText.setAlpha(0);
 
-        const arenaG = this.add.graphics();
-        arenaG.fillStyle(0x1a1a1a, 1);
-        arenaG.fillCircle(cx, cy, 280);
-        arenaG.fillStyle(0x222222, 0.3);
-        arenaG.fillCircle(cx, cy, 240);
-        arenaG.setDepth(-8);
-        this.terrainGraphics.push(arenaG);
-
-        const ringG = this.add.graphics();
-        ringG.lineStyle(4, 0x3a3a3a, 0.6);
-        ringG.strokeCircle(cx, cy, 270);
-        ringG.lineStyle(2, 0x4a4a3a, 0.3);
-        ringG.strokeCircle(cx, cy, 260);
-        ringG.setDepth(-7);
-        this.terrainGraphics.push(ringG);
-
-        const brokenColumns = [
-            { x: cx - 180, y: cy - 120, fallen: false },
-            { x: cx + 180, y: cy - 100, fallen: false },
-            { x: cx - 150, y: cy + 120, fallen: true },
-            { x: cx + 160, y: cy + 140, fallen: true },
-            { x: cx - 80, y: cy - 190, fallen: false },
-            { x: cx + 90, y: cy + 190, fallen: true },
-        ];
-        for (const col of brokenColumns) {
-            this.placeBrokenColumn(col.x, col.y, col.fallen);
-        }
-
-        const arenaFire = this.add.graphics();
-        const fx = cx;
-        const fy = cy + 160;
-        arenaFire.fillStyle(0x5a3a1a, 1);
-        for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
-            const rx = fx + Math.cos(angle) * 18;
-            const ry = fy + Math.sin(angle) * 18;
-            arenaFire.fillRect(rx - 3, ry - 10, 6, 20);
-        }
-        arenaFire.fillStyle(0xff6600, 0.9);
-        arenaFire.fillCircle(fx, fy - 6, 12);
-        arenaFire.fillStyle(0xffaa00, 0.8);
-        arenaFire.fillCircle(fx, fy - 7, 8);
-        arenaFire.fillStyle(0xffdd44, 0.7);
-        arenaFire.fillCircle(fx, fy - 8, 5);
-        this.terrainGraphics.push(arenaFire);
-
-        const exitBoulderG = this.add.graphics();
-        exitBoulderG.fillStyle(0x6a6a5a, 1);
-        exitBoulderG.fillCircle(cx - 230, cy, 30);
-        exitBoulderG.fillStyle(0x7a7a6a, 0.5);
-        exitBoulderG.fillCircle(cx - 235, cy - 5, 12);
-        exitBoulderG.fillCircle(cx - 220, cy + 5, 10);
-        exitBoulderG.lineStyle(2, 0x5a5a4a, 0.4);
-        exitBoulderG.strokeCircle(cx - 230, cy, 30);
-        exitBoulderG.setDepth(4);
-        this.terrainGraphics.push(exitBoulderG);
-
-        this.arenaGateObjs = [];
-        const gateWalls = [
-            { x: cx + 140, y: cy, w: 20, h: 120 },
-            { x: cx, y: cy + 140, w: 120, h: 20 },
-            { x: cx, y: cy - 140, w: 120, h: 20 },
-        ];
-        for (const gw of gateWalls) {
-            const w = new WorldObject({
-                scene: this,
-                id: `arena_gate_${gw.x}_${gw.y}`,
-                type: "wall",
-                x: gw.x,
-                y: gw.y,
-                width: gw.w,
-                height: gw.h,
-                color: 0x5a4a3a,
-                alpha: 0,
-                isCollidable: true,
-            });
-            w.setDepth(0);
-            this.arenaGateObjs.push(w);
-            this.worldObjects.push(w);
-            this.collisionManager?.addObject(w);
-        }
-
-        // Entrance Gate (positioned off-screen initially, shifts to close behind player)
-        this.arenaEntranceGateObj = new WorldObject({
-            scene: this,
-            id: `arena_entrance_gate`,
-            type: "wall",
-            x: cx - 250,
-            y: -1000,
-            width: 20,
-            height: 120,
-            color: 0x5a4a3a,
-            alpha: 1,
-            isCollidable: true,
+                            scene.tweens.add({
+                                targets: revealText,
+                                alpha: 1,
+                                duration: 1000,
+                                yoyo: true,
+                                hold: 2000,
+                                onComplete: () => {
+                                    revealText.destroy();
+                                    next();
+                                }
+                            });
+                        }
+                    }
+                },
+                {
+                    type: "FADE",
+                    params: { direction: "in", duration: 1000, color: 0x000000 }
+                }
+            ]
         });
-        this.arenaEntranceGateObj.setDepth(4);
-        this.worldObjects.push(this.arenaEntranceGateObj);
-        this.collisionManager?.addObject(this.arenaEntranceGateObj);
-
-        // Decorative Elements:
-        // Collapsed ceiling rubble
-        const ceilingRubble = this.add.graphics();
-        ceilingRubble.fillStyle(0x4a4a3a, 0.6);
-        ceilingRubble.fillEllipse(cx - 60, cy - 80, 40, 20);
-        ceilingRubble.fillEllipse(cx + 70, cy + 80, 30, 15);
-        ceilingRubble.lineStyle(1, 0x3a3a2a, 0.4);
-        ceilingRubble.strokeEllipse(cx - 60, cy - 80, 40, 20);
-        ceilingRubble.strokeEllipse(cx + 70, cy + 80, 30, 15);
-        ceilingRubble.setDepth(-5);
-        this.terrainGraphics.push(ceilingRubble);
-
-        // Broken cages
-        const brokenCage = this.add.graphics();
-        brokenCage.lineStyle(2, 0x3a2a1a, 0.8);
-        brokenCage.strokeRect(cx + 120, cy - 80, 24, 28);
-        brokenCage.lineBetween(cx + 126, cy - 80, cx + 124, cy - 52);
-        brokenCage.lineBetween(cx + 138, cy - 80, cx + 142, cy - 52);
-        brokenCage.setDepth(3);
-        this.terrainGraphics.push(brokenCage);
-
-        // Extra destroyed carts & debris
-        this.placeBrokenCart(cx - 140, cy - 100);
-        this.placeBrokenCart(cx + 140, cy - 160);
-        this.placeChains(cx - 180, cy - 60);
-        this.placeChains(cx - 170, cy - 40);
-        this.placeSkullPile(cx - 80, cy - 150);
-
-        // Trigger Zones
-        this.entryTriggerZone = this.add.zone(cx - 220, cy, 40, 300);
-        this.physics.add.existing(this.entryTriggerZone, true);
-
-        this.arenaCutsceneZone = this.add.zone(cx, cy, 100, 300);
-        this.physics.add.existing(this.arenaCutsceneZone, true);
     }
 
     private buildCaveStoryProps(): void {
@@ -1372,17 +1384,8 @@ export default class CaveScene extends Phaser.Scene {
             body.setCollideWorldBounds(true);
         }
 
-        // Connect boss arena triggers
-        if (this.entryTriggerZone) {
-            this.physics.add.overlap(this.player, this.entryTriggerZone, () => {
-                this.handleArenaEntry();
-            });
-        }
-
-        if (this.arenaCutsceneZone) {
-            this.physics.add.overlap(this.player, this.arenaCutsceneZone, () => {
-                this.handleArenaCutscene();
-            });
+        if (this.bossEncounterController && this.player) {
+            this.bossEncounterController.initialize(this.player);
         }
     }
 
@@ -2052,28 +2055,7 @@ export default class CaveScene extends Phaser.Scene {
         this.terrainGraphics.push(g);
     }
 
-    private placeBrokenColumn(cx: number, cy: number, fallen: boolean): void {
-        const g = this.add.graphics();
-        if (fallen) {
-            g.fillStyle(0x8a8a7a, 1);
-            g.fillRect(cx - 16, cy - 3, 32, 6);
-            g.lineStyle(1, 0x6a6a5a, 0.6);
-            g.strokeRect(cx - 16, cy - 3, 32, 6);
-            g.fillStyle(0x9a9a8a, 1);
-            g.fillCircle(cx - 14, cy, 3);
-            g.fillCircle(cx + 14, cy, 3);
-        } else {
-            g.fillStyle(0x8a8a7a, 1);
-            g.fillRect(cx - 5, cy - 14, 10, 28);
-            g.lineStyle(1, 0x6a6a5a, 0.6);
-            g.strokeRect(cx - 5, cy - 14, 10, 28);
-            g.fillStyle(0x9a9a8a, 1);
-            g.fillRect(cx - 7, cy - 16, 14, 4);
-            g.fillRect(cx - 7, cy + 12, 14, 4);
-        }
-        g.setDepth(3);
-        this.terrainGraphics.push(g);
-    }
+
 
     private updateAtmosphere(delta: number): void {
         if (!this.player || !this.fogOverlay) return;
@@ -2235,176 +2217,62 @@ export default class CaveScene extends Phaser.Scene {
         }
     }
 
-    private handleArenaEntry(): void {
-        if (this.arenaEntered) return;
-        this.arenaEntered = true;
-
-        // Camera locks: unfollow player and focus on boss arena center
-        if (this.cameraManager) {
-            this.cameraManager.destroy();
-            this.cameraManager = null;
-        }
-        this.cameras.main.pan(BOSS_ARENA_CENTER.x, BOSS_ARENA_CENTER.y, 1200, "Sine.easeInOut");
-        this.cameras.main.zoomTo(0.85, 1200, "Sine.easeInOut");
-
-        // Close doors behind player (shift gate into position)
-        if (this.arenaEntranceGateObj) {
-            this.arenaEntranceGateObj.gameObject.y = BOSS_ARENA_CENTER.y;
-            this.arenaEntranceGateObj.body?.updateFromGameObject();
-        }
-
-        // Slight screen shake and rubble sound
-        this.cameras.main.shake(200, 0.005);
-        try {
-            if (this.sound && this.cache.audio.has("rumble")) {
-                this.sound.play("rumble", { volume: 0.20 });
-            }
-        } catch {}
-
-        // Trapped dialogue
-        if (this.dialogueManager) {
-            this.dialogueManager.start({
-                lines: [
-                    { speaker: "Odysseus", text: "A massive stone slab fell behind us! We are trapped!" }
-                ]
-            });
-        }
-
-        // Update objectives
-        this.objectiveManager?.completeObjective("search_deeper");
-        this.objectiveManager?.setObjective("reach_deepest", "Reach the deepest chamber");
-    }
-
-    private handleArenaCutscene(): void {
-        if (this.cutsceneTriggered || !this.player) return;
-        this.cutsceneTriggered = true;
-
-        // Block player controls
-        GameStateManager.getInstance().setState(GameState.CUTSCENE);
+    private handlePlayerDeath(): void {
+        if (this.isRespawning) return;
+        this.isRespawning = true;
         this.playerControlEnabled = false;
 
-        // Slow cinematic pan & zoom slightly toward giant furniture (table/chair)
-        this.cameras.main.pan(BOSS_ARENA_CENTER.x, BOSS_ARENA_CENTER.y - 120, 2000, "Sine.easeInOut");
-        this.cameras.main.zoomTo(1.2, 2000, "Sine.easeInOut");
+        Logger.getInstance().log("[CaveScene] Player died. Respawning at last checkpoint.");
 
-        // Pan to exit boulder after 2.5s
-        this.time.delayedCall(2500, () => {
-            this.cameras.main.pan(BOSS_ARENA_CENTER.x - 230, BOSS_ARENA_CENTER.y, 2000, "Sine.easeInOut");
-            this.cameras.main.zoomTo(1.0, 2000, "Sine.easeInOut");
-        });
+        // Fade out
+        this.cameras.main.fadeOut(1000, 0, 0, 0);
+        this.cameras.main.once("camerafadeoutcomplete", () => {
+            // Restore player health & state
+            if (this.player) {
+                this.player.healthComponent.heal(this.player.healthComponent.getMaxHealth());
+                this.player.getController().getStateMachine().transitionTo("IDLE" as any);
 
-        // Trigger dialogue after 5s
-        this.time.delayedCall(5000, () => {
-            if (this.dialogueManager) {
-                this.dialogueManager.start({
-                    lines: [
-                        { speaker: "Eurylochus", text: "...Where is he? It's too quiet." },
-                        { speaker: "Odysseus", text: "Stay quiet. Look at the size of this place..." }
-                    ]
-                });
-
-                // Listen for dialogue close to trigger footsteps and reveal
-                const checkDialogueEnd = this.time.addEvent({
-                    delay: 200,
-                    loop: true,
-                    callback: () => {
-                        if (!this.dialogueManager?.isActive()) {
-                            checkDialogueEnd.destroy();
-                            this.triggerCyclopsApproachReveal();
-                        }
-                    }
-                });
-            } else {
-                this.triggerCyclopsApproachReveal();
+                // Get active checkpoint position
+                const cp = CheckpointSystem.getInstance().getActiveCheckpoint();
+                if (cp) {
+                    this.player.setPosition(cp.x, cp.y);
+                } else {
+                    this.player.setPosition(ENTRANCE_CENTER.x, ENTRANCE_CENTER.y + 40);
+                }
             }
-        });
-    }
 
-    private triggerCyclopsApproachReveal(): void {
-        // Heavy footsteps and dust fall
-        this.cameras.main.shake(2000, 0.008);
-        try {
-            if (this.sound && this.cache.audio.has("rumble")) {
-                this.sound.play("rumble", { volume: 0.35 });
+            // Reset encounter if dead at boss checkpoint
+            const activeCheckpointId = CheckpointSystem.getInstance().getActiveCheckpoint()?.id;
+            if (activeCheckpointId === "before_boss" && this.bossEncounterController) {
+                this.bossEncounterController.resetEncounter();
             }
-        } catch {}
 
-        // Spawn falling pebbles to simulate ceiling dust
-        for (let i = 0; i < 25; i++) {
-            this.time.delayedCall(Phaser.Math.Between(0, 1500), () => {
-                const spawnX = BOSS_ARENA_CENTER.x + Phaser.Math.Between(-300, 300);
-                this.fallingPebbles.push({
-                    x: spawnX,
-                    y: Phaser.Math.Between(-50, 0),
-                    vy: Phaser.Math.Between(250, 450),
-                    size: Phaser.Math.FloatBetween(2.0, 4.5),
-                    color: 0x5a5a4a,
+            // Short delay before fade in
+            this.time.delayedCall(500, () => {
+                this.cameras.main.fadeIn(1000, 0, 0, 0);
+                this.cameras.main.once("camerafadeincomplete", () => {
+                    this.playerControlEnabled = true;
+                    this.isRespawning = false;
                 });
             });
-        }
-
-        // Fade to black
-        this.time.delayedCall(1500, () => {
-            this.cameras.main.fadeOut(1000, 0, 0, 0);
         });
-
-        // Display "The Cyclops approaches..." text
-        this.time.delayedCall(2600, () => {
-            const revealText = this.add.text(
-                GAME_CONFIG.WIDTH / 2,
-                GAME_CONFIG.HEIGHT / 2,
-                "The Cyclops approaches...",
-                {
-                    fontSize: "28px",
-                    color: "#ff3333",
-                    stroke: "#000000",
-                    strokeThickness: 5,
-                    fontStyle: "bold"
-                }
-            );
-            revealText.setOrigin(0.5);
-            revealText.setScrollFactor(0);
-            revealText.setDepth(2000);
-            revealText.setAlpha(0);
-
-            this.tweens.add({
-                targets: revealText,
-                alpha: 1,
-                duration: 1000,
-                yoyo: true,
-                hold: 2000,
-                onComplete: () => {
-                    revealText.destroy();
-                    this.completeRevealSequence();
-                }
-            });
-        });
-    }
-
-    private completeRevealSequence(): void {
-        // Fade back in
-        this.cameras.main.fadeIn(1000, 0, 0, 0);
-
-        // Activate final checkpoint immediately before reveal
-        this.checkpoints?.activateCheckpoint("before_boss");
-
-        // Re-initialize camera following player
-        this.setupCamera();
-        if (this.cameraManager && this.player) {
-            this.cameraManager.follow(this.player);
-        }
-
-        // Return control to player
-        GameStateManager.getInstance().setState(GameState.PLAYING);
-        this.playerControlEnabled = true;
-
-        // Update objectives: Reach deepest chamber -> Survive the encounter (locked)
-        this.objectiveManager?.completeObjective("reach_deepest");
-        this.objectiveManager?.setObjective("survive_encounter", "Survive the encounter (Locked)");
     }
 
     update(time: number, delta: number): void {
         InputManager.getInstance().update();
+
+        if (this.debugDamageKey && Phaser.Input.Keyboard.JustDown(this.debugDamageKey)) {
+            if (this.bossEncounterController) {
+                this.bossEncounterController.takeDamage(100);
+            }
+        }
+
+        if (this.bossEncounterController) {
+            this.bossEncounterController.update(time, delta);
+        }
+
+        // Update particle and trail effects
+        EffectsManager.getInstance().update(delta / 1000);
 
         if (!this.gameStarted) {
             for (const npc of this.crewNPCs) {
@@ -2416,8 +2284,24 @@ export default class CaveScene extends Phaser.Scene {
             return;
         }
 
-        if (this.player && this.playerControlEnabled) {
-            this.player.update(time, delta);
+        const enemyMgr = EnemyManager.getInstance();
+        enemyMgr.tickHitPause(delta);
+
+        if (!enemyMgr.isHitPaused()) {
+            if (this.player && this.playerControlEnabled) {
+                this.player.update(time, delta);
+
+                // Check for player death respawn
+                if (!this.player.healthComponent.isAlive()) {
+                    this.handlePlayerDeath();
+                }
+            }
+
+            enemyMgr.update(time, delta);
+            enemyMgr.checkPlayerHitboxCollisions(this);
+            if (this.player) {
+                enemyMgr.checkEnemyHitboxCollisions(this.player);
+            }
         }
 
         for (const npc of this.crewNPCs) {

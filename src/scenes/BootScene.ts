@@ -31,6 +31,7 @@ export default class BootScene extends Phaser.Scene {
 
     AnimationRegistry.generatePlayerPlaceholders(this);
     AnimationRegistry.generateWolfPlaceholders(this);
+    AnimationRegistry.generateCyclopsPlaceholders(this);
     Logger.getInstance().log("Placeholder animations generated");
 
     this.generateWeaponTexture();

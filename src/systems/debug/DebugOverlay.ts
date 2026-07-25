@@ -243,6 +243,32 @@ export class DebugOverlay {
     }
     info += `\nInteractables: ${im.getInteractableCount()}`;
 
+    const activeScene = this.infoText.scene;
+    const bossCtrl = (activeScene as any).bossEncounterController;
+    if (bossCtrl) {
+      info += `\n\n--- BOSS ENCOUNTER SYSTEM ---`;
+      info += `\nBoss: ${bossCtrl.config.bossName} | HP: ${bossCtrl.getBossHp()}/${bossCtrl.getMaxHp()}`;
+      info += `\nPhase: ${bossCtrl.getCurrentPhaseId()} (${bossCtrl.phaseString})`;
+      info += `\nActive: ${bossCtrl.isEncounterActive() ? "YES" : "NO"}`;
+      info += `\nTriggers: ${bossCtrl.getTriggerStatus()}`;
+      info += `\nSpawn Point: (${bossCtrl.config.arenaConfig.bossSpawnX}, ${bossCtrl.config.arenaConfig.bossSpawnY})`;
+      info += `\nCheckpoint: ${bossCtrl.config.checkpointId}`;
+
+      const boss = bossCtrl.bossEntity;
+      if (boss) {
+        info += `\nAttack: ${boss.currentAttack.toUpperCase()} (${boss.activeAttackState})`;
+        info += `\nTelegraph: ${Math.max(0, boss.telegraphTimer).toFixed(0)}ms | Recovery: ${Math.max(0, boss.recoveryTimer).toFixed(0)}ms`;
+        info += `\nCooldown: ${Math.max(0, boss.attackCooldownTimer).toFixed(0)}ms`;
+      }
+      const arena = bossCtrl.arenaController;
+      if (arena) {
+        const pillars = arena.getPillarStates();
+        const standing = pillars.filter((p: any) => !p.fallen).length;
+        const destroyed = pillars.filter((p: any) => p.fallen).length;
+        info += `\nPillars: Stood:${standing} | Collapsed:${destroyed}`;
+      }
+    }
+
     this.infoText.setText(info);
   }
 

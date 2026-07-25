@@ -9,7 +9,6 @@ export class ChaseState implements IEnemyState {
   private readonly LOST_PLAYER_TIMEOUT: number = 2.5;
   private isReacting: boolean = false;
   private attackOnCooldown: boolean = false;
-  private readonly ATTACK_COOLDOWN_TIME: number = 0.3;
 
   public enter(ai: EnemyAI): void {
     this.lostPlayerTimer = 0;
