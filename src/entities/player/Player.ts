@@ -30,7 +30,7 @@ export class Player extends Phaser.GameObjects.Container {
   private inputBridge: PlayerInputBridge;
   private animationController: AnimationController;
   private combatController: CombatController;
-  private directionIndicator: Phaser.GameObjects.Arc;
+
   public healthComponent: HealthComponent;
 
   private invulnerable: boolean = false;
@@ -74,6 +74,8 @@ export class Player extends Phaser.GameObjects.Container {
     this.animationController = animController;
 
     const sprite = this.animationController.getSprite();
+    sprite.setPosition(0, 0);
+    sprite.setScale(48 / 448); // Scale Odysseus sprite (448px height) to match the player container height (48px)
     this.add(sprite);
 
     const weapon = WeaponManager.getInstance().createWeapon(scene, config.combat.weaponKey);
@@ -89,8 +91,7 @@ export class Player extends Phaser.GameObjects.Container {
     );
     combatMgr.registerController("player", this.combatController);
 
-    this.directionIndicator = scene.add.circle(0, 16, 6, 0xffd700);
-    this.add(this.directionIndicator);
+
 
     scene.add.existing(this);
 
@@ -180,8 +181,11 @@ export class Player extends Phaser.GameObjects.Container {
     }
 
     const facingDir = this.controller.getFacingDirection();
-    const distance = 16;
-    this.directionIndicator.setPosition(facingDir.x * distance, facingDir.y * distance);
+    if (facingDir.x < 0) {
+      this.animationController.setFlipX(true);
+    } else if (facingDir.x > 0) {
+      this.animationController.setFlipX(false);
+    }
   }
 
   public takeDamage(amount: number, source?: { x: number; y: number }): boolean {

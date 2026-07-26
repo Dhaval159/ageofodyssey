@@ -5,6 +5,7 @@ import { AssetManager } from "../core/AssetManager";
 import { SceneTransitionManager } from "../core/SceneTransitionManager";
 import { GameStateManager } from "../core/GameStateManager";
 import { GameState } from "../core/GameStateManager";
+import { AnimationRegistry } from "../systems/animation/AnimationRegistry";
 
 export default class PreloadScene extends Phaser.Scene {
   private fill: Phaser.GameObjects.Graphics | null = null;
@@ -57,6 +58,19 @@ export default class PreloadScene extends Phaser.Scene {
 
     this.load.on("complete", () => {
       Logger.getInstance().log("All assets loaded successfully");
+      try {
+        const texture = this.textures.get("odysseus_test_sheet_img");
+        if (texture && texture.key !== "__MISSING") {
+          const w = texture.source[0].width;
+          const h = texture.source[0].height;
+          Logger.getInstance().log(`Loaded Odysseus spritesheet image at complete: ${w}x${h}`);
+          AnimationRegistry.registerPlayerOdysseusAnimations(this, "odysseus_test_sheet_img", w, h);
+        } else {
+          Logger.getInstance().warn("Odysseus test sheet texture not found, falling back to placeholders");
+        }
+      } catch (err) {
+        Logger.getInstance().error("Error registering Odysseus animations:", err);
+      }
       this.scheduleTransition();
     });
 

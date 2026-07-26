@@ -82,8 +82,20 @@ export class CombatController {
     }
 
     const hb = def.hitbox;
-    const cx = position.x + direction.x * hb.offsetX;
-    const cy = position.y + direction.y * hb.offsetY;
+    const len = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
+    const dx = len > 0 ? direction.x / len : 1;
+    const dy = len > 0 ? direction.y / len : 0;
+
+    const cx = position.x + dx * hb.offsetX;
+    const cy = position.y + dy * hb.offsetX;
+
+    let width = hb.width;
+    let height = hb.height;
+
+    if (hb.shape === HitboxShape.RECTANGLE && Math.abs(dy) > Math.abs(dx)) {
+      width = hb.height;
+      height = hb.width;
+    }
 
     this.activeHitboxId = this.hitboxManager.createHitbox(
       this.ownerId,
@@ -93,7 +105,7 @@ export class CombatController {
       def.damage,
       def.duration,
       hb.shape === HitboxShape.RECTANGLE
-        ? { width: hb.width, height: hb.height }
+        ? { width, height }
         : { radius: hb.radius }
     );
   }
@@ -107,10 +119,23 @@ export class CombatController {
       const hb = this.hitboxManager.getActiveHitboxes().get(this.activeHitboxId);
       if (hb) {
         const def = this.weapon.getAttackDef(this.currentAttackType);
-        const offsetX = def ? def.hitbox.offsetX : 18;
-        const offsetY = def ? def.hitbox.offsetY : 0;
-        hb.shape.x = position.x + direction.x * offsetX;
-        hb.shape.y = position.y + direction.y * offsetY;
+        if (def) {
+          const len = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
+          const dx = len > 0 ? direction.x / len : 1;
+          const dy = len > 0 ? direction.y / len : 0;
+          hb.shape.x = position.x + dx * def.hitbox.offsetX;
+          hb.shape.y = position.y + dy * def.hitbox.offsetX;
+
+          if (def.hitbox.shape === HitboxShape.RECTANGLE) {
+            if (Math.abs(dy) > Math.abs(dx)) {
+              hb.shape.width = def.hitbox.height;
+              hb.shape.height = def.hitbox.width;
+            } else {
+              hb.shape.width = def.hitbox.width;
+              hb.shape.height = def.hitbox.height;
+            }
+          }
+        }
       }
     }
 
@@ -177,6 +202,10 @@ export class CombatController {
   public updateLastTransform(position: { x: number; y: number }, direction: { x: number; y: number }): void {
     this.lastPosition = { ...position };
     this.lastDirection = { ...direction };
+  }
+
+  public getLastDirection(): { x: number; y: number } {
+    return { ...this.lastDirection };
   }
 
   public isAttacking(): boolean {

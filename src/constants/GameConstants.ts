@@ -7,7 +7,7 @@ export const GAME_CONFIG = {
   PHYSICS_STEPS_PER_FRAME: 1,
   NAME: "Odyssey: The Cyclops",
   VERSION: "0.1.0",
-  DEBUG_MODE: true,
+  DEBUG_MODE: false,
   STRICT_COLLISION: true,
   GRAVITY_FORCE: 0.5,
   BACKGROUND_COLOR: "#0f0f23",

@@ -794,4 +794,193 @@ export class AnimationRegistry {
       }
     }
   }
+
+  public static registerPlayerOdysseusAnimations(
+    scene: Phaser.Scene,
+    imgKey: string,
+    imageWidth: number,
+    imageHeight: number
+  ): void {
+    const cols = 8;
+    const rows = 4;
+    const fw = imageWidth / cols;
+    const fh = imageHeight / rows;
+
+    const prefix = "placeholder_player";
+    const sheetKey = `${prefix}_sheet`;
+
+    // 1. Remove texture if it already exists
+    if (scene.textures.exists(sheetKey)) {
+      scene.textures.remove(sheetKey);
+    }
+
+    // 2. Add spritesheet texture dynamically using the preloaded image texture source
+    const originalTexture = scene.textures.get(imgKey);
+    if (!originalTexture) {
+      throw new Error(`Original texture not found: ${imgKey}`);
+    }
+
+    scene.textures.addSpriteSheet(sheetKey, originalTexture.source[0].image as HTMLImageElement, {
+      frameWidth: fw,
+      frameHeight: fh,
+    });
+
+    // 3. Re-create all player animations with correct frame index mappings
+    const ids = Object.values(AnimationId);
+    ids.forEach((id) => {
+      const animKey = `${prefix}_${id.toLowerCase()}`;
+      if (scene.anims.exists(animKey)) {
+        scene.anims.remove(animKey);
+      }
+    });
+
+    // Idle
+    scene.anims.create({
+      key: `${prefix}_idle`,
+      frames: scene.anims.generateFrameNumbers(sheetKey, { start: 0, end: 7 }),
+      frameRate: 6,
+      repeat: -1,
+    });
+
+    // Walk
+    scene.anims.create({
+      key: `${prefix}_walk`,
+      frames: scene.anims.generateFrameNumbers(sheetKey, { start: 8, end: 15 }),
+      frameRate: 16,
+      repeat: -1,
+    });
+
+    // Run (re-uses walk frames with higher rate)
+    scene.anims.create({
+      key: `${prefix}_run`,
+      frames: scene.anims.generateFrameNumbers(sheetKey, { start: 8, end: 15 }),
+      frameRate: 24,
+      repeat: -1,
+    });
+
+    // Roll (re-uses walk frames, non-looping)
+    scene.anims.create({
+      key: `${prefix}_roll`,
+      frames: scene.anims.generateFrameNumbers(sheetKey, { start: 8, end: 15 }),
+      frameRate: 12,
+      repeat: 0,
+    });
+
+    // Attack
+    scene.anims.create({
+      key: `${prefix}_attack`,
+      frames: scene.anims.generateFrameNumbers(sheetKey, { start: 16, end: 23 }),
+      frameRate: 12,
+      repeat: 0,
+    });
+
+    // Heavy Attack (slower attack)
+    scene.anims.create({
+      key: `${prefix}_heavy_attack`,
+      frames: scene.anims.generateFrameNumbers(sheetKey, { start: 16, end: 23 }),
+      frameRate: 10,
+      repeat: 0,
+    });
+
+    // Block (idle frame 0)
+    scene.anims.create({
+      key: `${prefix}_block`,
+      frames: scene.anims.generateFrameNumbers(sheetKey, { start: 0, end: 0 }),
+      frameRate: 1,
+      repeat: -1,
+    });
+
+    // Hurt
+    scene.anims.create({
+      key: `${prefix}_hurt`,
+      frames: scene.anims.generateFrameNumbers(sheetKey, { start: 24, end: 27 }),
+      frameRate: 8,
+      repeat: 0,
+    });
+
+    // Death (re-uses hurt frames)
+    scene.anims.create({
+      key: `${prefix}_death`,
+      frames: scene.anims.generateFrameNumbers(sheetKey, { start: 24, end: 27 }),
+      frameRate: 6,
+      repeat: 0,
+    });
+
+    // 4. Update player config registry
+    const transitions: AnimationTransition[] = [
+      { from: AnimationId.IDLE, to: AnimationId.WALK },
+      { from: AnimationId.IDLE, to: AnimationId.RUN },
+      { from: AnimationId.WALK, to: AnimationId.IDLE },
+      { from: AnimationId.WALK, to: AnimationId.RUN },
+      { from: AnimationId.RUN, to: AnimationId.IDLE },
+      { from: AnimationId.RUN, to: AnimationId.WALK },
+      { from: AnimationId.IDLE, to: AnimationId.ROLL },
+      { from: AnimationId.WALK, to: AnimationId.ROLL },
+      { from: AnimationId.RUN, to: AnimationId.ROLL },
+      { from: AnimationId.IDLE, to: AnimationId.ATTACK },
+      { from: AnimationId.WALK, to: AnimationId.ATTACK },
+      { from: AnimationId.RUN, to: AnimationId.ATTACK },
+      { from: AnimationId.IDLE, to: AnimationId.HEAVY_ATTACK },
+      { from: AnimationId.WALK, to: AnimationId.HEAVY_ATTACK },
+      { from: AnimationId.RUN, to: AnimationId.HEAVY_ATTACK },
+      { from: AnimationId.IDLE, to: AnimationId.BLOCK },
+      { from: AnimationId.WALK, to: AnimationId.BLOCK },
+      { from: AnimationId.RUN, to: AnimationId.BLOCK },
+      { from: AnimationId.ROLL, to: AnimationId.IDLE },
+      { from: AnimationId.ROLL, to: AnimationId.WALK },
+      { from: AnimationId.ROLL, to: AnimationId.RUN },
+      { from: AnimationId.ATTACK, to: AnimationId.IDLE },
+      { from: AnimationId.ATTACK, to: AnimationId.WALK },
+      { from: AnimationId.ATTACK, to: AnimationId.RUN },
+      { from: AnimationId.HEAVY_ATTACK, to: AnimationId.IDLE },
+      { from: AnimationId.HEAVY_ATTACK, to: AnimationId.WALK },
+      { from: AnimationId.HEAVY_ATTACK, to: AnimationId.RUN },
+      { from: AnimationId.BLOCK, to: AnimationId.IDLE },
+      { from: AnimationId.BLOCK, to: AnimationId.WALK },
+      { from: AnimationId.BLOCK, to: AnimationId.RUN },
+      { from: AnimationId.HURT, to: AnimationId.IDLE },
+      { from: AnimationId.HURT, to: AnimationId.WALK },
+      { from: AnimationId.HURT, to: AnimationId.RUN },
+      { from: AnimationId.HURT, to: AnimationId.ROLL },
+      { from: AnimationId.HURT, to: AnimationId.ATTACK },
+      { from: AnimationId.HURT, to: AnimationId.HEAVY_ATTACK },
+      { from: AnimationId.DEATH, to: AnimationId.IDLE },
+      { from: AnimationId.IDLE, to: AnimationId.HURT },
+      { from: AnimationId.WALK, to: AnimationId.HURT },
+      { from: AnimationId.RUN, to: AnimationId.HURT },
+      { from: AnimationId.IDLE, to: AnimationId.DEATH },
+      { from: AnimationId.WALK, to: AnimationId.DEATH },
+      { from: AnimationId.RUN, to: AnimationId.DEATH },
+      { from: AnimationId.ATTACK, to: AnimationId.DEATH },
+      { from: AnimationId.BLOCK, to: AnimationId.DEATH },
+      { from: AnimationId.HURT, to: AnimationId.DEATH },
+    ];
+
+    const animations: Record<AnimationId, AnimationDef> = {
+      [AnimationId.IDLE]: { key: sheetKey, prefix, frameCount: 8, frameRate: 6, repeat: -1 },
+      [AnimationId.WALK]: { key: sheetKey, prefix, frameCount: 8, frameRate: 16, repeat: -1, speedScale: 1.5 },
+      [AnimationId.RUN]: { key: sheetKey, prefix, frameCount: 8, frameRate: 24, repeat: -1, speedScale: 1.8 },
+      [AnimationId.ROLL]: { key: sheetKey, prefix, frameCount: 8, frameRate: 12, repeat: 0 },
+      [AnimationId.ATTACK]: { key: sheetKey, prefix, frameCount: 8, frameRate: 12, repeat: 0 },
+      [AnimationId.HEAVY_ATTACK]: { key: sheetKey, prefix, frameCount: 8, frameRate: 10, repeat: 0 },
+      [AnimationId.BLOCK]: { key: sheetKey, prefix, frameCount: 1, frameRate: 1, repeat: -1 },
+      [AnimationId.HURT]: { key: sheetKey, prefix, frameCount: 4, frameRate: 8, repeat: 0 },
+      [AnimationId.DEATH]: { key: sheetKey, prefix, frameCount: 4, frameRate: 6, repeat: 0 },
+    };
+
+    const config: EntityAnimationConfig = {
+      entityType: "player",
+      animations,
+      defaultAnimation: AnimationId.IDLE,
+      transitions,
+      spritesheet: {
+        key: sheetKey,
+        frameWidth: fw,
+        frameHeight: fh,
+      },
+    };
+
+    AnimationRegistry.register("player", config);
+    Logger.getInstance().log(`[AnimationRegistry] Odysseus real animations registered: ${fw}x${fh} frames`);
+  }
 }

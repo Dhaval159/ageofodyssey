@@ -6,6 +6,7 @@ import { BossCheckpoint } from "./BossCheckpoint";
 import { BossCutsceneSequence, CutsceneStep } from "./BossCutsceneSequence";
 import { BossDefeatSequence } from "./BossDefeatSequence";
 import { BossArenaController, BossArenaConfig } from "./BossArenaController";
+import { EscapeSequenceController, EscapeSequenceConfig } from "./EscapeSequenceController";
 import { ObjectiveManager } from "../../../systems/objectives/ObjectiveManager";
 import { GameStateManager, GameState } from "../../../core/GameStateManager";
 import { Logger } from "../../../core/Logger";
@@ -29,6 +30,7 @@ export interface BossEncounterConfig {
   };
   checkpointId: string;
   arenaConfig: BossArenaConfig;
+  escapeConfig?: EscapeSequenceConfig;
 }
 
 export class BossEncounterController {
@@ -42,6 +44,7 @@ export class BossEncounterController {
   private checkpoint: BossCheckpoint;
   private cutsceneSequence: BossCutsceneSequence;
   private defeatSequence: BossDefeatSequence;
+  private escapeController: EscapeSequenceController | null = null;
   public bossEntity: Cyclops | null = null;
   
   // UI
@@ -72,6 +75,10 @@ export class BossEncounterController {
     this.checkpoint = new BossCheckpoint(config.checkpointId);
     this.cutsceneSequence = new BossCutsceneSequence(scene);
     this.defeatSequence = new BossDefeatSequence(scene);
+
+    if (config.escapeConfig) {
+      this.escapeController = new EscapeSequenceController(scene);
+    }
 
     this.registerPhases();
   }
@@ -184,6 +191,9 @@ export class BossEncounterController {
     this.phaseManager.update(time, delta);
     if (this.healthUI) {
       this.healthUI.update(time, delta);
+    }
+    if (this.escapeController) {
+      this.escapeController.update(time, delta);
     }
   }
 
@@ -312,8 +322,15 @@ export class BossEncounterController {
         // Complete objective
         const objectiveManager = ObjectiveManager.getInstance();
         objectiveManager.completeObjective("survive_encounter");
-        objectiveManager.setObjective("escape_cave", "Escape the Cyclops' Cave");
-        Logger.getInstance().log("[BossEncounter] Victory sequence complete! Objective set to Escape.");
+
+        if (this.config.escapeConfig && this.escapeController) {
+          Logger.getInstance().log("[BossEncounter] Starting escape sequence!");
+          const exitX = this.config.arenaConfig.centerX - 280;
+          this.escapeController.start(this.config.escapeConfig, (this.scene as any).player, exitX);
+        } else {
+          objectiveManager.setObjective("escape_cave", "Escape the Cyclops' Cave");
+          Logger.getInstance().log("[BossEncounter] Victory sequence complete! Objective set to Escape.");
+        }
       }
     });
   }
@@ -372,6 +389,10 @@ export class BossEncounterController {
     return `Entry:${entryActive ? "Active" : "Closed"} | Cutscene:${cutsceneActive ? "Active" : "Closed"}`;
   }
 
+  public getEscapeController(): EscapeSequenceController | null {
+    return this.escapeController;
+  }
+
   public destroy(): void {
     if (this.playerOverlapCollider) {
       this.scene.physics.world.removeCollider(this.playerOverlapCollider);
@@ -389,6 +410,9 @@ export class BossEncounterController {
     this.phaseManager.destroy();
     if (this.healthUI) {
       this.healthUI.destroy();
+    }
+    if (this.escapeController) {
+      this.escapeController.destroy();
     }
     this.musicController.stopMusic(0);
     Logger.getInstance().log("[BossEncounterController] Cleaned up");

@@ -180,8 +180,16 @@ export class DebugOverlay {
       const combatState = combatCtrl ? combatCtrl.getState() : "?";
       const invulnMs = this.player["invulnerabilityTimer"] ? Math.round(this.player["invulnerabilityTimer"] * 1000) : 0;
 
+      const facingDir = this.player.getController().getFacingDirection();
+      let attackDirStr = "N/A";
+      if (combatCtrl) {
+        const ad = combatCtrl.getLastDirection();
+        attackDirStr = `(${ad.x.toFixed(2)}, ${ad.y.toFixed(2)})`;
+      }
+
       info += `Player: (${px.toFixed(1)}, ${py.toFixed(1)})`;
       info += `\nHP: ${playerHp}/${playerMaxHp} | State: ${playerState}`;
+      info += `\nFacing: (${facingDir.x.toFixed(2)}, ${facingDir.y.toFixed(2)}) | AttackDir: ${attackDirStr}`;
       info += `\nCombat: ${combatState}`;
 
       if (combatCtrl) {
@@ -266,6 +274,15 @@ export class DebugOverlay {
         const standing = pillars.filter((p: any) => !p.fallen).length;
         const destroyed = pillars.filter((p: any) => p.fallen).length;
         info += `\nPillars: Stood:${standing} | Collapsed:${destroyed}`;
+      }
+
+      const escapeCtrl = bossCtrl.getEscapeController?.();
+      if (escapeCtrl && escapeCtrl.isEscapeActive()) {
+        info += `\n\n--- ESCAPE SEQUENCE ---`;
+        info += `\nPhase: ${escapeCtrl.getPhase().toUpperCase()}`;
+        info += `\nTimer: ${escapeCtrl.getEscapeTimer().toFixed(1)}s / ${escapeCtrl.getTimeLimit()}s`;
+        info += `\nBoulders: ${escapeCtrl.getBoulderCount()} active`;
+        info += `\nTriggers: ${escapeCtrl.getTriggeredZoneCount()} hit`;
       }
     }
 

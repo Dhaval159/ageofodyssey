@@ -271,21 +271,47 @@ export class EnemyManager {
     });
   }
 
+  private checkHitboxPlayerCollision(
+    hb: { shape: { x: number; y: number; width?: number; height?: number; radius?: number; shape?: HitboxShape } },
+    player: Phaser.GameObjects.GameObject
+  ): boolean {
+    const px = (player as any).x;
+    const py = (player as any).y;
+    const body = player.body as Phaser.Physics.Arcade.Body;
+    const playerW = body ? body.width : 32;
+    const playerH = body ? body.height : 48;
+
+    if (hb.shape.shape === HitboxShape.CIRCLE || hb.shape.radius !== undefined) {
+      const radius = hb.shape.radius ?? Math.max(hb.shape.width ?? 16, hb.shape.height ?? 16) / 2;
+      const dx = px - hb.shape.x;
+      const dy = py - hb.shape.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      return dist < radius + Math.max(playerW, playerH) / 2;
+    }
+
+    const hw = (hb.shape.width ?? 32) / 2;
+    const hh = (hb.shape.height ?? 32) / 2;
+    return (
+      px < hb.shape.x + hw + playerW / 2 &&
+      px > hb.shape.x - hw - playerW / 2 &&
+      py < hb.shape.y + hh + playerH / 2 &&
+      py > hb.shape.y - hh - playerH / 2
+    );
+  }
+
   public checkEnemyHitboxCollisions(player: Phaser.GameObjects.GameObject): void {
     const combatMgr = CombatManager.getInstance();
     const hitboxManager = combatMgr.getHitboxManager();
     const hitboxes = hitboxManager.getActiveHitboxes();
 
     const p = player as any;
-    const px = (player as unknown as { x: number; y: number }).x ?? 0;
-    const py = (player as unknown as { x: number; y: number }).y ?? 0;
 
     for (const [, hb] of hitboxes) {
       if (!hb.ownerId || hb.ownerId === "player") continue;
       const playerId = "PLAYER_TARGET";
       if (hb.hitEntities.has(playerId)) continue;
 
-      const hit = this.checkHitboxVsPoint(hb, px, py);
+      const hit = this.checkHitboxPlayerCollision(hb, player);
       if (hit) {
         hb.hitEntities.add(playerId);
         Logger.getInstance().log(`[Combat] Enemy hit player for ${hb.damage} damage`);
@@ -342,27 +368,7 @@ export class EnemyManager {
     );
   }
 
-  private checkHitboxVsPoint(
-    hb: { shape: { x: number; y: number; width?: number; height?: number; radius?: number; shape?: HitboxShape } },
-    px: number,
-    py: number
-  ): boolean {
-    if (hb.shape.shape === HitboxShape.CIRCLE || hb.shape.radius !== undefined) {
-      const radius = hb.shape.radius ?? Math.max(hb.shape.width ?? 16, hb.shape.height ?? 16) / 2;
-      const dx = px - hb.shape.x;
-      const dy = py - hb.shape.y;
-      return dx * dx + dy * dy < radius * radius;
-    }
 
-    const hw = (hb.shape.width ?? 32) / 2;
-    const hh = (hb.shape.height ?? 32) / 2;
-    return (
-      px >= hb.shape.x - hw &&
-      px <= hb.shape.x + hw &&
-      py >= hb.shape.y - hh &&
-      py <= hb.shape.y + hh
-    );
-  }
 
   public getEnemyCount(): number {
     return this.enemies.size;

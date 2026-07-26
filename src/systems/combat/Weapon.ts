@@ -81,13 +81,13 @@ export class Weapon {
 
     if (this.sprite) {
       this.sprite.setPosition(tipX, tipY);
-      this.sprite.setVisible(true);
+      this.sprite.setVisible(false); // Hide placeholder sword sprite
       const angle = Math.atan2(facingY, facingX) * (180 / Math.PI);
       this.sprite.setAngle(angle);
     }
 
     if (this.graphics) {
-      this.graphics.setVisible(true);
+      this.graphics.setVisible(false); // Hide placeholder line graphics
     }
   }
 
@@ -115,6 +115,7 @@ export class Weapon {
 
     if (this.sprite) {
       this.sprite.setPosition(tipX, tipY);
+      this.sprite.setVisible(false);
       const baseAngle = Math.atan2(facingY, facingX) * (180 / Math.PI);
       const arc = 60;
       const t = this.swingProgress;
@@ -124,18 +125,7 @@ export class Weapon {
 
     if (this.graphics) {
       this.graphics.clear();
-      const angle = Math.atan2(facingY, facingX);
-      const arc = Math.PI / 3;
-      const t = this.swingProgress;
-      const currentAngle = angle - arc / 2 + arc * t;
-      const len = this.range;
-      const tipGx = currentOwnerX + Math.cos(currentAngle) * len;
-      const tipGy = currentOwnerY + Math.sin(currentAngle) * len;
-      this.graphics.lineStyle(3, 0xc0c0c0, 1);
-      this.graphics.beginPath();
-      this.graphics.moveTo(currentOwnerX, currentOwnerY);
-      this.graphics.lineTo(tipGx, tipGy);
-      this.graphics.strokePath();
+      this.graphics.setVisible(false);
     }
 
     return false;

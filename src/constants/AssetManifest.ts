@@ -51,6 +51,12 @@ export const AssetManifest: Record<AssetCategory, IAssetDefinition[]> = {
       category: "images",
       type: "image",
     },
+    {
+      key: "odysseus_test_sheet_img",
+      path: "/assets/images/odysseus_test_sheet.png",
+      category: "images",
+      type: "image",
+    },
   ],
   sprites: [],
   tilesets: [],

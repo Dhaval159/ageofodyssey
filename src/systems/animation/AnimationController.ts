@@ -42,9 +42,7 @@ export class AnimationController {
     this.currentDef = def;
 
     const animKey = `${def.prefix}_${id.toLowerCase()}`;
-    if (this.sprite.anims.currentAnim?.key !== animKey) {
-      this.sprite.play(animKey);
-    }
+    this.sprite.play(animKey, true);
   }
 
   public requestState(id: AnimationId): void {

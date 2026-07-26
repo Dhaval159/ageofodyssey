@@ -866,7 +866,243 @@ export default class CaveScene extends Phaser.Scene {
                     type: "FADE",
                     params: { direction: "in", duration: 1000, color: 0x000000 }
                 }
-            ]
+            ],
+            escapeConfig: {
+                escapeTimeLimit: 100,
+                triggerZones: [
+                    {
+                        x: BOSS_ARENA_CENTER.x - 200, y: BOSS_ARENA_CENTER.y, width: 120, height: 200,
+                        objectiveId: "escape_arena", objectiveText: "Run! The cave is collapsing!",
+                        collapseDelay: 2000, collapseX: BOSS_ARENA_CENTER.x + 100, collapseY: BOSS_ARENA_CENTER.y,
+                        collapseW: 200, collapseH: 300
+                    },
+                    {
+                        x: SLEEPING_CHAMBER_CENTER.x, y: SLEEPING_CHAMBER_CENTER.y, width: 150, height: 200,
+                        objectiveId: "escape_sleeping", objectiveText: "Keep moving! The ceiling is cracking!",
+                        collapseDelay: 3000, collapseX: SLEEPING_CHAMBER_CENTER.x + 100, collapseY: SLEEPING_CHAMBER_CENTER.y,
+                        collapseW: 180, collapseH: 200
+                    },
+                    {
+                        x: FIRE_PIT_CENTER.x, y: FIRE_PIT_CENTER.y, width: 150, height: 200,
+                        objectiveId: "escape_firepit", objectiveText: "Through the fire pit! Don't stop!",
+                        collapseDelay: 3000, collapseX: FIRE_PIT_CENTER.x + 80, collapseY: FIRE_PIT_CENTER.y,
+                        collapseW: 160, collapseH: 200
+                    },
+                    {
+                        x: BONE_CHAMBER_CENTER.x, y: BONE_CHAMBER_CENTER.y, width: 150, height: 200,
+                        objectiveId: "escape_bones", objectiveText: "The bones are shifting! Run!",
+                        collapseDelay: 2500, collapseX: BONE_CHAMBER_CENTER.x + 60, collapseY: BONE_CHAMBER_CENTER.y,
+                        collapseW: 140, collapseH: 200
+                    },
+                    {
+                        x: COLLAPSED_PASSAGE_CENTER.x, y: COLLAPSED_PASSAGE_CENTER.y, width: 120, height: 200,
+                        objectiveId: "escape_passage", objectiveText: "Another collapse! Watch out!",
+                        collapseDelay: 2000, collapseX: COLLAPSED_PASSAGE_CENTER.x + 50, collapseY: COLLAPSED_PASSAGE_CENTER.y,
+                        collapseW: 120, collapseH: 200
+                    },
+                    {
+                        x: STORAGE_CENTER.x, y: STORAGE_CENTER.y, width: 150, height: 200,
+                        objectiveId: "escape_storage", objectiveText: "Almost there! The exit is near!",
+                        collapseDelay: 2500, collapseX: STORAGE_CENTER.x + 60, collapseY: STORAGE_CENTER.y,
+                        collapseW: 140, collapseH: 200
+                    },
+                    {
+                        x: SHEEP_PEN_CENTER.x, y: SHEEP_PEN_CENTER.y, width: 150, height: 200,
+                        objectiveId: "escape_pen", objectiveText: "The entrance! Keep going!",
+                        collapseDelay: 3000, collapseX: SHEEP_PEN_CENTER.x + 50, collapseY: SHEEP_PEN_CENTER.y,
+                        collapseW: 120, collapseH: 200
+                    }
+                ],
+                boulders: [
+                    { spawnX: BOSS_ARENA_CENTER.x, spawnY: BOSS_ARENA_CENTER.y - 300, targetX: BOSS_ARENA_CENTER.x - 80, targetY: BOSS_ARENA_CENTER.y, delay: 3000, damage: 25, radius: 18 },
+                    { spawnX: SLEEPING_CHAMBER_CENTER.x - 50, spawnY: SLEEPING_CHAMBER_CENTER.y - 250, targetX: SLEEPING_CHAMBER_CENTER.x + 30, targetY: SLEEPING_CHAMBER_CENTER.y, delay: 5000, damage: 20, radius: 15 },
+                    { spawnX: FIRE_PIT_CENTER.x + 40, spawnY: FIRE_PIT_CENTER.y - 280, targetX: FIRE_PIT_CENTER.x - 20, targetY: FIRE_PIT_CENTER.y, delay: 7000, damage: 20, radius: 16 },
+                    { spawnX: BONE_CHAMBER_CENTER.x - 30, spawnY: BONE_CHAMBER_CENTER.y - 260, targetX: BONE_CHAMBER_CENTER.x + 20, targetY: BONE_CHAMBER_CENTER.y, delay: 9000, damage: 22, radius: 17 },
+                    { spawnX: COLLAPSED_PASSAGE_CENTER.x, spawnY: COLLAPSED_PASSAGE_CENTER.y - 240, targetX: COLLAPSED_PASSAGE_CENTER.x - 10, targetY: COLLAPSED_PASSAGE_CENTER.y, delay: 11000, damage: 20, radius: 14 },
+                    { spawnX: STORAGE_CENTER.x + 20, spawnY: STORAGE_CENTER.y - 270, targetX: STORAGE_CENTER.x - 30, targetY: STORAGE_CENTER.y, delay: 13000, damage: 18, radius: 15 },
+                    { spawnX: SHEEP_PEN_CENTER.x - 40, spawnY: SHEEP_PEN_CENTER.y - 250, targetX: SHEEP_PEN_CENTER.x + 10, targetY: SHEEP_PEN_CENTER.y, delay: 15000, damage: 18, radius: 14 },
+                    { spawnX: ENTRANCE_CENTER.x + 30, spawnY: ENTRANCE_CENTER.y - 200, targetX: ENTRANCE_CENTER.x - 10, targetY: ENTRANCE_CENTER.y, delay: 18000, damage: 20, radius: 16 }
+                ],
+                collapsingBridges: [],
+                breakingFloors: [],
+                dustZones: [],
+                torchExtinguish: [],
+                introCutsceneSteps: [
+                    { type: "SHAKE", params: { duration: 2000, intensity: 0.01, wait: true } },
+                    { type: "SFX", params: { key: "rumble", volume: 0.5 } },
+                    {
+                        type: "CUSTOM",
+                        params: {
+                            action: (scene: Phaser.Scene, next: () => void) => {
+                                const caveScene = scene as any;
+                                for (let i = 0; i < 40; i++) {
+                                    scene.time.delayedCall(Phaser.Math.Between(0, 2000), () => {
+                                        const spawnX = Phaser.Math.Between(100, 4400);
+                                        caveScene.fallingPebbles.push({
+                                            x: spawnX,
+                                            y: Phaser.Math.Between(-50, 0),
+                                            vy: Phaser.Math.Between(300, 600),
+                                            size: Phaser.Math.FloatBetween(2.5, 5.5),
+                                            color: 0x5a5a4a
+                                        });
+                                    });
+                                }
+                                scene.time.delayedCall(500, next);
+                            }
+                        }
+                    },
+                    { type: "DIALOGUE", params: { lines: [
+                        { speaker: "Odysseus", text: "The Cyclops screams in agony... the whole cave is shaking!" },
+                        { speaker: "Eurylochus", text: "Captain! The ceiling is coming down! We need to move!" }
+                    ]}},
+                    { type: "CUSTOM", params: {
+                        action: (scene: Phaser.Scene, next: () => void) => {
+                            const warnText = scene.add.text(
+                                scene.cameras.main.width / 2,
+                                scene.cameras.main.height / 2,
+                                "RUN!",
+                                {
+                                    fontSize: "48px",
+                                    color: "#ff2222",
+                                    stroke: "#000000",
+                                    strokeThickness: 6,
+                                    fontStyle: "bold"
+                                }
+                            );
+                            warnText.setOrigin(0.5);
+                            warnText.setScrollFactor(0);
+                            warnText.setDepth(2000);
+                            warnText.setAlpha(0);
+                            scene.tweens.add({
+                                targets: warnText,
+                                alpha: 1,
+                                duration: 400,
+                                yoyo: true,
+                                hold: 1200,
+                                onComplete: () => { warnText.destroy(); next(); }
+                            });
+                        }
+                    }}
+                ],
+                outroCutsceneSteps: [
+                    { type: "FADE", params: { direction: "out", duration: 1500, color: 0x000000 } },
+                    { type: "WAIT", params: { duration: 500 } },
+                    {
+                        type: "CUSTOM",
+                        params: {
+                            action: (scene: Phaser.Scene, next: () => void) => {
+                                const cam = scene.cameras.main;
+                                const lookBack = scene.add.graphics();
+                                lookBack.setScrollFactor(0);
+                                lookBack.setDepth(1500);
+                                lookBack.fillStyle(0x1a1a1a, 1);
+                                lookBack.fillRect(0, 0, cam.width, cam.height);
+                                lookBack.fillStyle(0x3a3a2a, 0.8);
+                                lookBack.fillRect(0, cam.height * 0.6, cam.width, cam.height * 0.4);
+                                lookBack.setAlpha(0);
+
+                                const shakeText = scene.add.text(cam.width / 2, cam.height * 0.45, "The mountain trembles as the cave collapses...", {
+                                    fontSize: "18px",
+                                    color: "#ccaa66",
+                                    stroke: "#000000",
+                                    strokeThickness: 4
+                                });
+                                shakeText.setOrigin(0.5);
+                                shakeText.setScrollFactor(0);
+                                shakeText.setDepth(1501);
+                                shakeText.setAlpha(0);
+
+                                scene.tweens.add({
+                                    targets: [lookBack, shakeText],
+                                    alpha: 1,
+                                    duration: 2000,
+                                    ease: "Power2",
+                                    onComplete: () => {
+                                        scene.cameras.main.shake(1500, 0.008);
+                                        scene.time.delayedCall(2500, () => {
+                                            shakeText.setText("Odysseus escapes into the light...");
+                                            scene.tweens.add({
+                                                targets: shakeText,
+                                                alpha: 0,
+                                                duration: 1500,
+                                                delay: 1500,
+                                                onComplete: () => {
+                                                    lookBack.destroy();
+                                                    shakeText.destroy();
+                                                    next();
+                                                }
+                                            });
+                                        });
+                                    }
+                                });
+                            }
+                        }
+                    },
+                    { type: "FADE", params: { direction: "in", duration: 1000, color: 0x000000 } },
+                    { type: "WAIT", params: { duration: 500 } },
+                    { type: "CUSTOM", params: {
+                        action: (scene: Phaser.Scene, next: () => void) => {
+                            const cam = scene.cameras.main;
+                            const chapterText = scene.add.text(cam.width / 2, cam.height / 2 - 30, "Chapter Complete", {
+                                fontSize: "36px",
+                                color: "#ffd700",
+                                stroke: "#000000",
+                                strokeThickness: 6,
+                                fontStyle: "bold"
+                            });
+                            chapterText.setOrigin(0.5);
+                            chapterText.setScrollFactor(0);
+                            chapterText.setDepth(2000);
+                            chapterText.setAlpha(0);
+
+                            const subText = scene.add.text(cam.width / 2, cam.height / 2 + 20, "The Journey Continues...", {
+                                fontSize: "20px",
+                                color: "#ccaa66",
+                                stroke: "#000000",
+                                strokeThickness: 4
+                            });
+                            subText.setOrigin(0.5);
+                            subText.setScrollFactor(0);
+                            subText.setDepth(2000);
+                            subText.setAlpha(0);
+
+                            scene.tweens.add({
+                                targets: chapterText,
+                                alpha: 1,
+                                duration: 1500,
+                                ease: "Power2"
+                            });
+                            scene.tweens.add({
+                                targets: subText,
+                                alpha: 1,
+                                duration: 1500,
+                                delay: 800,
+                                ease: "Power2",
+                                onComplete: () => {
+                                    scene.time.delayedCall(3000, () => {
+                                        scene.tweens.add({
+                                            targets: [chapterText, subText],
+                                            alpha: 0,
+                                            duration: 1500,
+                                            onComplete: () => {
+                                                chapterText.destroy();
+                                                subText.destroy();
+                                                next();
+                                            }
+                                        });
+                                    });
+                                }
+                            });
+                        }
+                    }},
+                    { type: "FADE", params: { direction: "out", duration: 2000, color: 0x000000 } },
+                    { type: "WAIT", params: { duration: 1000 } }
+                ],
+                onEscapeComplete: () => {
+                    Logger.getInstance().log("[CaveScene] Escape sequence complete. Chapter finished.");
+                    SceneTransitionManager.getInstance().transitionTo("MainMenuScene", { fadeDuration: 2000 });
+                }
+            }
         });
     }
 
@@ -2223,6 +2459,39 @@ export default class CaveScene extends Phaser.Scene {
 
     private handlePlayerDeath(): void {
         if (this.isRespawning) return;
+
+        // During escape sequence, death means failure
+        const escapeCtrl = this.bossEncounterController?.getEscapeController?.();
+        if (escapeCtrl && escapeCtrl.isEscapeActive()) {
+            Logger.getInstance().log("[CaveScene] Player died during escape. Restarting from boss.");
+            this.isRespawning = true;
+            this.playerControlEnabled = false;
+
+            escapeCtrl.destroy();
+
+            this.cameras.main.fadeOut(1500, 0, 0, 0);
+            this.cameras.main.once("camerafadeoutcomplete", () => {
+                if (this.player) {
+                    this.player.healthComponent.heal(this.player.healthComponent.getMaxHealth());
+                    this.player.getController().getStateMachine().transitionTo("IDLE" as any);
+                    this.player.setPosition(BOSS_ARENA_CENTER.x - 200, BOSS_ARENA_CENTER.y);
+                }
+
+                if (this.bossEncounterController) {
+                    this.bossEncounterController.resetEncounter();
+                }
+
+                this.time.delayedCall(500, () => {
+                    this.cameras.main.fadeIn(1000, 0, 0, 0);
+                    this.cameras.main.once("camerafadeincomplete", () => {
+                        this.playerControlEnabled = true;
+                        this.isRespawning = false;
+                    });
+                });
+            });
+            return;
+        }
+
         this.isRespawning = true;
         this.playerControlEnabled = false;
 
