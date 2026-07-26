@@ -226,7 +226,7 @@ export class Player extends Phaser.GameObjects.Container {
         if (len > 0) {
           this.knockbackVelocity.x = (knockDir.x / len) * 200;
           this.knockbackVelocity.y = (knockDir.y / len) * 200;
-          this.knockbackDecay = 400;
+          this.knockbackDecay = 0.3;
         }
       }
 
@@ -251,13 +251,15 @@ export class Player extends Phaser.GameObjects.Container {
 
   private updateKnockback(dt: number): void {
     if (this.knockbackDecay > 0) {
-      const decayFactor = Math.max(0, 1 - dt * 10);
+      this.knockbackDecay = Math.max(0, this.knockbackDecay - dt);
+      const progress = this.knockbackDecay / 0.3;
+      const decayFactor = Math.max(0, progress);
       this.knockbackVelocity.x *= decayFactor;
       this.knockbackVelocity.y *= decayFactor;
-      this.knockbackDecay -= dt * 400;
-      if (this.knockbackDecay <= 0) {
+      if (this.knockbackDecay <= 0 || (Math.abs(this.knockbackVelocity.x) < 1 && Math.abs(this.knockbackVelocity.y) < 1)) {
         this.knockbackVelocity.x = 0;
         this.knockbackVelocity.y = 0;
+        this.knockbackDecay = 0;
       }
     }
   }

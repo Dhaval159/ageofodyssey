@@ -35,12 +35,13 @@ export class HealthComponent {
   }
 
   public getHealthPercent(): number {
-    return this.currentHealth / this.maxHealth;
+    return this.maxHealth > 0 ? this.currentHealth / this.maxHealth : 0;
   }
 
   public setMaxHealth(value: number, adjustCurrent?: boolean): void {
-    this.maxHealth = value;
-    if (adjustCurrent) {
+    this.maxHealth = Math.max(1, value);
+    this.currentHealth = Math.min(this.currentHealth, this.maxHealth);
+    if (!adjustCurrent) {
       this.currentHealth = Math.min(this.currentHealth, this.maxHealth);
     }
   }

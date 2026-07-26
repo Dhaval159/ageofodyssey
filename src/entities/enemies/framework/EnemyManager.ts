@@ -115,6 +115,8 @@ export class EnemyManager {
   }
 
   private setupHealthCallbacks(_enemy: Enemy, controller: EnemyController): void {
+    if (controller.health.isCallbackSet()) return;
+
     controller.health.setOnDamage((_amount: number) => {
       const currentState = controller.ai.getCurrentStateId();
       if (currentState !== "DEAD" && currentState !== "HURT") {
@@ -155,9 +157,11 @@ export class EnemyManager {
   }
 
   public update(_time: number, delta: number): void {
-    // Tick hit pause first - if paused, skip enemy updates but still tick timers
     this.tickHitPause(delta);
-    
+
+    const combatMgr = CombatManager.getInstance();
+    combatMgr.getHitboxManager().update(delta);
+
     if (this.isHitPaused()) {
       // During hit pause, only update death timers for cleanup
       for (const [id, enemy] of this.enemies) {
@@ -319,8 +323,9 @@ export class EnemyManager {
   ): boolean {
     const ex = enemy.x;
     const ey = enemy.y;
-    const enemyW = 32;
-    const enemyH = 32;
+    const config = enemy.controller.getConfig();
+    const enemyW = config.size.width;
+    const enemyH = config.size.height;
 
     if (hb.shape.shape === HitboxShape.CIRCLE || hb.shape.radius !== undefined) {
       const radius = hb.shape.radius ?? Math.max(hb.shape.width ?? 16, hb.shape.height ?? 16) / 2;

@@ -1,3 +1,4 @@
+import Phaser from "phaser";
 import { IPlayerConfig } from "./PlayerConfig";
 import { IPlayerInput } from "./PlayerInputBridge";
 import {
@@ -14,6 +15,15 @@ import {
   DeadState,
 } from "./PlayerStateMachine";
 
+const STATE_SPEEDS: Partial<Record<PlayerStateId, number>> = {};
+const CAN_MOVE_STATES = new Set([
+  PlayerStateId.WALKING,
+  PlayerStateId.RUNNING,
+  PlayerStateId.ROLLING,
+  PlayerStateId.ATTACKING,
+  PlayerStateId.HEAVY_ATTACKING,
+]);
+
 export class PlayerController {
   private config: IPlayerConfig;
   private stateMachine: PlayerStateMachine;
@@ -28,13 +38,20 @@ export class PlayerController {
 
   private position: { x: number; y: number } = { x: 0, y: 0 };
   private velocity: { x: number; y: number } = { x: 0, y: 0 };
-  private facingDirection: { x: number; y: number } = { x: 0, y: 1 }; // Default down
+  private facingDirection: { x: number; y: number } = { x: 0, y: 1 };
+
+  private worldBounds: { minX: number; minY: number; maxX: number; maxY: number } | null = null;
 
   constructor(config: IPlayerConfig) {
     this.config = config;
-    this.stateMachine = new PlayerStateMachine(this);
 
-    // Register all states
+    STATE_SPEEDS[PlayerStateId.WALKING] = config.walkSpeed;
+    STATE_SPEEDS[PlayerStateId.RUNNING] = config.runSpeed;
+    STATE_SPEEDS[PlayerStateId.ROLLING] = config.rollSpeed;
+    STATE_SPEEDS[PlayerStateId.ATTACKING] = config.attackMoveSpeed;
+    STATE_SPEEDS[PlayerStateId.HEAVY_ATTACKING] = config.heavyAttackMoveSpeed;
+
+    this.stateMachine = new PlayerStateMachine(this);
     this.stateMachine.registerState(new IdleState());
     this.stateMachine.registerState(new WalkingState());
     this.stateMachine.registerState(new RunningState());
@@ -44,103 +61,111 @@ export class PlayerController {
     this.stateMachine.registerState(new BlockingState());
     this.stateMachine.registerState(new HurtState());
     this.stateMachine.registerState(new DeadState());
-
-    // Initial state
     this.stateMachine.transitionTo(PlayerStateId.IDLE);
+  }
+
+  public setWorldBounds(minX: number, minY: number, maxX: number, maxY: number): void {
+    this.worldBounds = { minX, minY, maxX, maxY };
   }
 
   public update(dt: number, input: IPlayerInput): void {
     this.currentInput = input;
-
-    // Update state machine transitions
     this.stateMachine.update(dt);
-
-    // Update kinematic calculations
     this.updateMovement(dt);
   }
 
   private updateMovement(dt: number): void {
     const stateId = this.stateMachine.getCurrentStateId();
-    let speed = 0;
-
-    if (stateId === PlayerStateId.WALKING) {
-      speed = this.config.walkSpeed;
-    } else if (stateId === PlayerStateId.RUNNING) {
-      speed = this.config.runSpeed;
-    } else if (stateId === PlayerStateId.ROLLING) {
-      speed = this.config.runSpeed;
-    } else if (stateId === PlayerStateId.ATTACKING) {
-      speed = this.config.walkSpeed * 0.4;
-    } else if (stateId === PlayerStateId.HEAVY_ATTACKING) {
-      speed = this.config.walkSpeed * 0.25;
-    }
+    const speed = STATE_SPEEDS[stateId] ?? 0;
 
     let targetVx = 0;
     let targetVy = 0;
 
-    const canMove =
-      stateId === PlayerStateId.WALKING ||
-      stateId === PlayerStateId.RUNNING ||
-      stateId === PlayerStateId.ROLLING ||
-      stateId === PlayerStateId.ATTACKING ||
-      stateId === PlayerStateId.HEAVY_ATTACKING;
-
-    if (canMove) {
+    if (CAN_MOVE_STATES.has(stateId!)) {
       targetVx = this.currentInput.moveVector.x * speed;
       targetVy = this.currentInput.moveVector.y * speed;
 
-      // Update direction if moving
       if (this.currentInput.moveVector.x !== 0 || this.currentInput.moveVector.y !== 0) {
-        this.facingDirection = { ...this.currentInput.moveVector };
+        this.facingDirection = {
+          x: this.currentInput.moveVector.x,
+          y: this.currentInput.moveVector.y,
+        };
       }
     }
 
-    // Apply linear acceleration and deceleration frame-rate independently
-    // X Axis
-    if (targetVx !== 0) {
-      const diff = targetVx - this.velocity.x;
-      const step = this.config.acceleration * dt;
-      if (Math.abs(diff) <= step) {
-        this.velocity.x = targetVx;
-      } else {
-        this.velocity.x += Math.sign(diff) * step;
-      }
-    } else {
-      const diff = -this.velocity.x;
-      const step = this.config.deceleration * dt;
-      if (Math.abs(diff) <= step) {
-        this.velocity.x = 0;
-      } else {
-        this.velocity.x += Math.sign(diff) * step;
-      }
+    this.applyAxisAcceleration(
+      this.velocity,
+      "x",
+      targetVx,
+      this.config.acceleration,
+      this.config.deceleration,
+      dt
+    );
+    this.applyAxisAcceleration(
+      this.velocity,
+      "y",
+      targetVy,
+      this.config.acceleration,
+      this.config.deceleration,
+      dt
+    );
+
+    const maxSpeed = this.config.maxVelocity > 0 ? this.config.maxVelocity : speed * 1.5;
+    const velLen = Math.sqrt(this.velocity.x ** 2 + this.velocity.y ** 2);
+    if (velLen > maxSpeed) {
+      this.velocity.x = (this.velocity.x / velLen) * maxSpeed;
+      this.velocity.y = (this.velocity.y / velLen) * maxSpeed;
     }
 
-    // Y Axis
-    if (targetVy !== 0) {
-      const diff = targetVy - this.velocity.y;
-      const step = this.config.acceleration * dt;
-      if (Math.abs(diff) <= step) {
-        this.velocity.y = targetVy;
-      } else {
-        this.velocity.y += Math.sign(diff) * step;
-      }
-    } else {
-      const diff = -this.velocity.y;
-      const step = this.config.deceleration * dt;
-      if (Math.abs(diff) <= step) {
-        this.velocity.y = 0;
-      } else {
-        this.velocity.y += Math.sign(diff) * step;
-      }
-    }
+    const zeroThreshold = 1.0;
+    if (Math.abs(this.velocity.x) < zeroThreshold) this.velocity.x = 0;
+    if (Math.abs(this.velocity.y) < zeroThreshold) this.velocity.y = 0;
 
-    // Integrate position (this will be updated from Phaser body coordinates on the next frame)
     this.position.x += this.velocity.x * dt;
     this.position.y += this.velocity.y * dt;
+
+    if (this.worldBounds) {
+      this.position.x = Phaser.Math.Clamp(
+        this.position.x,
+        this.worldBounds.minX,
+        this.worldBounds.maxX
+      );
+      this.position.y = Phaser.Math.Clamp(
+        this.position.y,
+        this.worldBounds.minY,
+        this.worldBounds.maxY
+      );
+    }
   }
 
-  // Getters/Setters
-  public getPosition(): { x: number; y: number } {
+  private applyAxisAcceleration(
+    vel: { x: number; y: number },
+    axis: "x" | "y",
+    target: number,
+    accel: number,
+    decel: number,
+    dt: number
+  ): void {
+    if (target !== 0) {
+      const diff = target - vel[axis];
+      const step = accel * dt;
+      if (Math.abs(diff) <= step) {
+        vel[axis] = target;
+      } else {
+        vel[axis] += Math.sign(diff) * step;
+      }
+    } else {
+      const diff = -vel[axis];
+      const step = decel * dt;
+      if (Math.abs(diff) <= step) {
+        vel[axis] = 0;
+      } else {
+        vel[axis] += Math.sign(diff) * step;
+      }
+    }
+  }
+
+  public getPosition(): Readonly<{ x: number; y: number }> {
     return this.position;
   }
 
@@ -149,7 +174,7 @@ export class PlayerController {
     this.position.y = y;
   }
 
-  public getVelocity(): { x: number; y: number } {
+  public getVelocity(): Readonly<{ x: number; y: number }> {
     return this.velocity;
   }
 
@@ -158,7 +183,7 @@ export class PlayerController {
     this.velocity.y = vy;
   }
 
-  public getFacingDirection(): { x: number; y: number } {
+  public getFacingDirection(): Readonly<{ x: number; y: number }> {
     return this.facingDirection;
   }
 

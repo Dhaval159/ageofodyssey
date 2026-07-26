@@ -8,6 +8,10 @@ export interface ICombatConfig {
 export interface IPlayerConfig {
   walkSpeed: number;
   runSpeed: number;
+  rollSpeed: number;
+  attackMoveSpeed: number;
+  heavyAttackMoveSpeed: number;
+  maxVelocity: number;
   acceleration: number;
   deceleration: number;
   size: { width: number; height: number };
@@ -24,8 +28,12 @@ export interface IPlayerConfig {
 export const DEFAULT_PLAYER_CONFIG: IPlayerConfig = {
   walkSpeed: 160,
   runSpeed: 280,
-  acceleration: 1200,
-  deceleration: 1400,
+  rollSpeed: 320,
+  attackMoveSpeed: 64,
+  heavyAttackMoveSpeed: 40,
+  maxVelocity: 420,
+  acceleration: 1600,
+  deceleration: 1800,
   size: { width: 32, height: 48 },
   color: 0x00ffcc,
   camera: {

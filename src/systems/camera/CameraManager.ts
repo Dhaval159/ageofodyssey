@@ -21,7 +21,7 @@ export interface ICameraShakeConfig {
 
 interface ICameraShakeState {
   active: boolean;
-  startTime: number;
+  elapsed: number;
   intensity: number;
   duration: number;
 }
@@ -62,6 +62,10 @@ export class CameraManager {
     this.lookAheadFactor = config.lookAheadFactor ?? 0;
     this.roundPixels = config.roundPixels ?? true;
     this.worldBounds = config.worldBounds;
+
+    if (this.roundPixels) {
+      this.camera.setRoundPixels(true);
+    }
 
     if (config.initialZoom !== undefined) {
       this.camera.setZoom(config.initialZoom);
@@ -112,38 +116,33 @@ export class CameraManager {
     let destX = this.currentCenterX;
     let destY = this.currentCenterY;
 
-    const outX =
-      Math.abs(idealCenterX - this.currentCenterX) > deadzoneHalfW;
-    const outY =
-      Math.abs(idealCenterY - this.currentCenterY) > deadzoneHalfH;
+    const outX = Math.abs(idealCenterX - this.currentCenterX) > deadzoneHalfW;
+    const outY = Math.abs(idealCenterY - this.currentCenterY) > deadzoneHalfH;
 
     if (outX) {
-      destX =
-        idealCenterX > this.currentCenterX
-          ? idealCenterX - deadzoneHalfW
-          : idealCenterX + deadzoneHalfW;
+      destX = idealCenterX > this.currentCenterX
+        ? idealCenterX - deadzoneHalfW
+        : idealCenterX + deadzoneHalfW;
     }
 
     if (outY) {
-      destY =
-        idealCenterY > this.currentCenterY
-          ? idealCenterY - deadzoneHalfH
-          : idealCenterY + deadzoneHalfH;
+      destY = idealCenterY > this.currentCenterY
+        ? idealCenterY - deadzoneHalfH
+        : idealCenterY + deadzoneHalfH;
     }
 
-    const smoothingFactor = Math.min(delta / 16.67, 2);
+    const dt = delta / 1000;
+    const smoothingFactor = Math.min(dt / (1 / 60), 2);
 
-    this.currentCenterX +=
-      (destX - this.currentCenterX) * this.lerpX * smoothingFactor;
-    this.currentCenterY +=
-      (destY - this.currentCenterY) * this.lerpY * smoothingFactor;
+    this.currentCenterX += (destX - this.currentCenterX) * this.lerpX * smoothingFactor;
+    this.currentCenterY += (destY - this.currentCenterY) * this.lerpY * smoothingFactor;
 
     if (this.shakeState && this.shakeState.active) {
-      const elapsed = performance.now() - this.shakeState.startTime;
-      if (elapsed >= this.shakeState.duration) {
+      this.shakeState.elapsed += delta;
+      if (this.shakeState.elapsed >= this.shakeState.duration) {
         this.shakeState = null;
       } else {
-        const progress = elapsed / this.shakeState.duration;
+        const progress = this.shakeState.elapsed / this.shakeState.duration;
         const decay = 1 - progress;
         const magnitude = this.shakeState.intensity * decay;
         const shakeX = Phaser.Math.Between(-magnitude, magnitude);
@@ -154,10 +153,11 @@ export class CameraManager {
     }
 
     if (this.impulseState) {
-      this.currentCenterX += this.impulseState.x * delta * 0.06;
-      this.currentCenterY += this.impulseState.y * delta * 0.06;
-      this.impulseState.x *= (1 - this.impulseState.decay * delta * 0.001);
-      this.impulseState.y *= (1 - this.impulseState.decay * delta * 0.001);
+      const dtSec = dt;
+      this.currentCenterX += this.impulseState.x * dtSec * 0.06;
+      this.currentCenterY += this.impulseState.y * dtSec * 0.06;
+      this.impulseState.x *= (1 - this.impulseState.decay * dtSec * 0.001);
+      this.impulseState.y *= (1 - this.impulseState.decay * dtSec * 0.001);
       if (Math.abs(this.impulseState.x) < 0.5 && Math.abs(this.impulseState.y) < 0.5) {
         this.impulseState = null;
       }
@@ -176,16 +176,12 @@ export class CameraManager {
     }
 
     this.camera.centerOn(finalX, finalY);
-
-    if (this.roundPixels) {
-      this.camera.setRoundPixels(true);
-    }
   }
 
   public shake(config: ICameraShakeConfig): void {
     this.shakeState = {
       active: true,
-      startTime: performance.now(),
+      elapsed: 0,
       intensity: config.intensity,
       duration: config.duration,
     };

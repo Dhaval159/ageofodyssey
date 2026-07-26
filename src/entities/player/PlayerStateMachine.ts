@@ -59,38 +59,33 @@ export class PlayerStateMachine {
   }
 }
 
-// State Implementations
+function checkActionInputs(controller: PlayerController): PlayerStateId | null {
+  const input = controller.getCurrentInput();
+  if (input.isRolling) return PlayerStateId.ROLLING;
+  if (input.isAttacking) return PlayerStateId.ATTACKING;
+  if (input.isHeavyAttacking) return PlayerStateId.HEAVY_ATTACKING;
+  if (input.isBlocking) return PlayerStateId.BLOCKING;
+  return null;
+}
+
+function checkMovementState(controller: PlayerController): PlayerStateId {
+  const input = controller.getCurrentInput();
+  if (input.moveVector.x === 0 && input.moveVector.y === 0) return PlayerStateId.IDLE;
+  return input.isRunning ? PlayerStateId.RUNNING : PlayerStateId.WALKING;
+}
 
 export class IdleState implements IPlayerState {
   public id = PlayerStateId.IDLE;
   public enter(_controller: PlayerController): void {}
   public update(controller: PlayerController, _dt: number): void {
-    const input = controller.getCurrentInput();
-    if (input.moveVector.x !== 0 || input.moveVector.y !== 0) {
-      if (input.isRunning) {
-        controller.getStateMachine().transitionTo(PlayerStateId.RUNNING);
-      } else {
-        controller.getStateMachine().transitionTo(PlayerStateId.WALKING);
-      }
+    const moveState = checkMovementState(controller);
+    if (moveState !== PlayerStateId.IDLE) {
+      controller.getStateMachine().transitionTo(moveState);
       return;
     }
-
-    // Check action states
-    if (input.isRolling) {
-      controller.getStateMachine().transitionTo(PlayerStateId.ROLLING);
-      return;
-    }
-    if (input.isAttacking) {
-      controller.getStateMachine().transitionTo(PlayerStateId.ATTACKING);
-      return;
-    }
-    if (input.isHeavyAttacking) {
-      controller.getStateMachine().transitionTo(PlayerStateId.HEAVY_ATTACKING);
-      return;
-    }
-    if (input.isBlocking) {
-      controller.getStateMachine().transitionTo(PlayerStateId.BLOCKING);
-      return;
+    const action = checkActionInputs(controller);
+    if (action) {
+      controller.getStateMachine().transitionTo(action);
     }
   }
   public exit(_controller: PlayerController): void {}
@@ -100,32 +95,14 @@ export class WalkingState implements IPlayerState {
   public id = PlayerStateId.WALKING;
   public enter(_controller: PlayerController): void {}
   public update(controller: PlayerController, _dt: number): void {
-    const input = controller.getCurrentInput();
-    if (input.moveVector.x === 0 && input.moveVector.y === 0) {
-      controller.getStateMachine().transitionTo(PlayerStateId.IDLE);
+    const moveState = checkMovementState(controller);
+    if (moveState !== PlayerStateId.WALKING) {
+      controller.getStateMachine().transitionTo(moveState);
       return;
     }
-    if (input.isRunning) {
-      controller.getStateMachine().transitionTo(PlayerStateId.RUNNING);
-      return;
-    }
-
-    // Check action states
-    if (input.isRolling) {
-      controller.getStateMachine().transitionTo(PlayerStateId.ROLLING);
-      return;
-    }
-    if (input.isAttacking) {
-      controller.getStateMachine().transitionTo(PlayerStateId.ATTACKING);
-      return;
-    }
-    if (input.isHeavyAttacking) {
-      controller.getStateMachine().transitionTo(PlayerStateId.HEAVY_ATTACKING);
-      return;
-    }
-    if (input.isBlocking) {
-      controller.getStateMachine().transitionTo(PlayerStateId.BLOCKING);
-      return;
+    const action = checkActionInputs(controller);
+    if (action) {
+      controller.getStateMachine().transitionTo(action);
     }
   }
   public exit(_controller: PlayerController): void {}
@@ -135,32 +112,14 @@ export class RunningState implements IPlayerState {
   public id = PlayerStateId.RUNNING;
   public enter(_controller: PlayerController): void {}
   public update(controller: PlayerController, _dt: number): void {
-    const input = controller.getCurrentInput();
-    if (input.moveVector.x === 0 && input.moveVector.y === 0) {
-      controller.getStateMachine().transitionTo(PlayerStateId.IDLE);
+    const moveState = checkMovementState(controller);
+    if (moveState !== PlayerStateId.RUNNING) {
+      controller.getStateMachine().transitionTo(moveState);
       return;
     }
-    if (!input.isRunning) {
-      controller.getStateMachine().transitionTo(PlayerStateId.WALKING);
-      return;
-    }
-
-    // Check action states
-    if (input.isRolling) {
-      controller.getStateMachine().transitionTo(PlayerStateId.ROLLING);
-      return;
-    }
-    if (input.isAttacking) {
-      controller.getStateMachine().transitionTo(PlayerStateId.ATTACKING);
-      return;
-    }
-    if (input.isHeavyAttacking) {
-      controller.getStateMachine().transitionTo(PlayerStateId.HEAVY_ATTACKING);
-      return;
-    }
-    if (input.isBlocking) {
-      controller.getStateMachine().transitionTo(PlayerStateId.BLOCKING);
-      return;
+    const action = checkActionInputs(controller);
+    if (action) {
+      controller.getStateMachine().transitionTo(action);
     }
   }
   public exit(_controller: PlayerController): void {}
@@ -168,10 +127,17 @@ export class RunningState implements IPlayerState {
 
 export class RollingState implements IPlayerState {
   public id = PlayerStateId.ROLLING;
-  public enter(_controller: PlayerController): void {}
-  public update(controller: PlayerController, _dt: number): void {
-    // Placeholder transitions back to Idle
-    controller.getStateMachine().transitionTo(PlayerStateId.IDLE);
+  private timer: number = 0;
+  private readonly DURATION: number = 0.35;
+
+  public enter(_controller: PlayerController): void {
+    this.timer = this.DURATION;
+  }
+  public update(controller: PlayerController, dt: number): void {
+    this.timer -= dt;
+    if (this.timer <= 0) {
+      controller.getStateMachine().transitionTo(checkMovementState(controller));
+    }
   }
   public exit(_controller: PlayerController): void {}
 }
@@ -192,16 +158,11 @@ export class AttackingState implements IPlayerState {
     const input = controller.getCurrentInput();
 
     if (progress >= this.RECOVERY_MOVE_THRESHOLD) {
-      if (input.isAttacking) {
-        return;
-      }
-      if (input.moveVector.x !== 0 || input.moveVector.y !== 0) {
-        if (input.isRunning) {
-          controller.getStateMachine().transitionTo(PlayerStateId.RUNNING);
-        } else {
-          controller.getStateMachine().transitionTo(PlayerStateId.WALKING);
+      if (!input.isAttacking) {
+        if (input.moveVector.x !== 0 || input.moveVector.y !== 0) {
+          controller.getStateMachine().transitionTo(checkMovementState(controller));
+          return;
         }
-        return;
       }
     }
 
@@ -210,15 +171,7 @@ export class AttackingState implements IPlayerState {
         controller.getStateMachine().transitionTo(PlayerStateId.ATTACKING);
         return;
       }
-      if (input.moveVector.x !== 0 || input.moveVector.y !== 0) {
-        if (input.isRunning) {
-          controller.getStateMachine().transitionTo(PlayerStateId.RUNNING);
-        } else {
-          controller.getStateMachine().transitionTo(PlayerStateId.WALKING);
-        }
-      } else {
-        controller.getStateMachine().transitionTo(PlayerStateId.IDLE);
-      }
+      controller.getStateMachine().transitionTo(checkMovementState(controller));
     }
   }
   public exit(_controller: PlayerController): void {}
@@ -240,16 +193,11 @@ export class HeavyAttackingState implements IPlayerState {
     const input = controller.getCurrentInput();
 
     if (progress >= this.RECOVERY_MOVE_THRESHOLD) {
-      if (input.isHeavyAttacking) {
-        return;
-      }
-      if (input.moveVector.x !== 0 || input.moveVector.y !== 0) {
-        if (input.isRunning) {
-          controller.getStateMachine().transitionTo(PlayerStateId.RUNNING);
-        } else {
-          controller.getStateMachine().transitionTo(PlayerStateId.WALKING);
+      if (!input.isHeavyAttacking) {
+        if (input.moveVector.x !== 0 || input.moveVector.y !== 0) {
+          controller.getStateMachine().transitionTo(checkMovementState(controller));
+          return;
         }
-        return;
       }
     }
 
@@ -258,15 +206,7 @@ export class HeavyAttackingState implements IPlayerState {
         controller.getStateMachine().transitionTo(PlayerStateId.HEAVY_ATTACKING);
         return;
       }
-      if (input.moveVector.x !== 0 || input.moveVector.y !== 0) {
-        if (input.isRunning) {
-          controller.getStateMachine().transitionTo(PlayerStateId.RUNNING);
-        } else {
-          controller.getStateMachine().transitionTo(PlayerStateId.WALKING);
-        }
-      } else {
-        controller.getStateMachine().transitionTo(PlayerStateId.IDLE);
-      }
+      controller.getStateMachine().transitionTo(checkMovementState(controller));
     }
   }
   public exit(_controller: PlayerController): void {}
@@ -278,7 +218,7 @@ export class BlockingState implements IPlayerState {
   public update(controller: PlayerController, _dt: number): void {
     const input = controller.getCurrentInput();
     if (!input.isBlocking) {
-      controller.getStateMachine().transitionTo(PlayerStateId.IDLE);
+      controller.getStateMachine().transitionTo(checkMovementState(controller));
     }
   }
   public exit(_controller: PlayerController): void {}
@@ -295,16 +235,7 @@ export class HurtState implements IPlayerState {
   public update(controller: PlayerController, dt: number): void {
     this.timer -= dt;
     if (this.timer <= 0) {
-      const input = controller.getCurrentInput();
-      if (input.moveVector.x !== 0 || input.moveVector.y !== 0) {
-        if (input.isRunning) {
-          controller.getStateMachine().transitionTo(PlayerStateId.RUNNING);
-        } else {
-          controller.getStateMachine().transitionTo(PlayerStateId.WALKING);
-        }
-      } else {
-        controller.getStateMachine().transitionTo(PlayerStateId.IDLE);
-      }
+      controller.getStateMachine().transitionTo(checkMovementState(controller));
     }
   }
   public exit(_controller: PlayerController): void {}

@@ -274,25 +274,17 @@ export class BossEncounterController {
       this.healthUI.updateHealth(this.currentHp);
     }
 
-    // Evaluate Phase Thresholds
     const ratio = this.currentHp / this.maxHp;
+    const currentPhase = this.phaseManager.getCurrentPhase()?.id;
 
-    if (this.currentHp <= 0) {
-      if (this.phaseManager.getCurrentPhase()?.id !== "DEATH") {
-        this.phaseManager.changePhase("DEATH");
-      }
-    } else if (ratio <= this.config.phaseThresholds.enrage) {
-      if (this.phaseManager.getCurrentPhase()?.id !== "ENRAGED") {
-        this.phaseManager.changePhase("ENRAGED");
-      }
-    } else if (ratio <= this.config.phaseThresholds.phase3) {
-      if (this.phaseManager.getCurrentPhase()?.id !== "PHASE_3") {
-        this.phaseManager.changePhase("PHASE_3");
-      }
-    } else if (ratio <= this.config.phaseThresholds.phase2) {
-      if (this.phaseManager.getCurrentPhase()?.id !== "PHASE_2") {
-        this.phaseManager.changePhase("PHASE_2");
-      }
+    if (this.currentHp <= 0 && currentPhase !== "DEATH") {
+      this.phaseManager.changePhase("DEATH");
+    } else if (ratio <= this.config.phaseThresholds.enrage && currentPhase !== "ENRAGED" && currentPhase !== "DEATH") {
+      this.phaseManager.changePhase("ENRAGED");
+    } else if (ratio <= this.config.phaseThresholds.phase3 && currentPhase !== "PHASE_3" && currentPhase !== "ENRAGED" && currentPhase !== "DEATH") {
+      this.phaseManager.changePhase("PHASE_3");
+    } else if (ratio <= this.config.phaseThresholds.phase2 && currentPhase !== "PHASE_2" && currentPhase !== "PHASE_3" && currentPhase !== "ENRAGED" && currentPhase !== "DEATH") {
+      this.phaseManager.changePhase("PHASE_2");
     }
   }
 

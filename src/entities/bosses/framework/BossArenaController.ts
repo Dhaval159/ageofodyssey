@@ -34,6 +34,7 @@ export class BossArenaController {
   private props: Phaser.GameObjects.Graphics[] = [];
   private firePitGraphics: Phaser.GameObjects.Graphics | null = null;
   private exitBoulder: WorldObject | null = null;
+  private exitBoulderVisual: Phaser.GameObjects.Graphics | null = null;
   private entranceGate: WorldObject | null = null;
   private sideGates: WorldObject[] = [];
 
@@ -155,6 +156,7 @@ export class BossArenaController {
     boulderVis.lineStyle(2, 0x5a5a4a, 0.4);
     boulderVis.strokeCircle(cx - 230, cy, 30);
     boulderVis.setDepth(4);
+    this.exitBoulderVisual = boulderVis;
     this.terrainGraphics.push(boulderVis);
   }
 
@@ -366,20 +368,24 @@ export class BossArenaController {
     if (this.exitBoulder) {
       const collisionManager = CollisionManager.getInstance();
       if (open) {
-        // Clear boulder
         collisionManager.getObjectGroup()?.remove(this.exitBoulder.gameObject);
         this.exitBoulder.destroy();
         this.exitBoulder = null;
+        if (this.exitBoulderVisual) {
+          this.exitBoulderVisual.destroy();
+          this.exitBoulderVisual = null;
+        }
         Logger.getInstance().log("[BossArenaController] Exit boulder cleared");
       } else {
-        // If null, recreate it
         if (!this.exitBoulder) {
+          const cx = this.config.centerX;
+          const cy = this.config.centerY;
           this.exitBoulder = new WorldObject({
             scene: this.scene,
             id: "boss_exit_boulder",
             type: "rock",
-            x: this.config.centerX - 230,
-            y: this.config.centerY,
+            x: cx - 230,
+            y: cy,
             width: 60,
             height: 60,
             color: 0x6a6a5a,
@@ -387,6 +393,16 @@ export class BossArenaController {
             isCollidable: true
           });
           collisionManager.addObject(this.exitBoulder);
+
+          this.exitBoulderVisual = this.scene.add.graphics();
+          this.exitBoulderVisual.fillStyle(0x6a6a5a, 1);
+          this.exitBoulderVisual.fillCircle(cx - 230, cy, 30);
+          this.exitBoulderVisual.fillStyle(0x7a7a6a, 0.5);
+          this.exitBoulderVisual.fillCircle(cx - 235, cy - 5, 12);
+          this.exitBoulderVisual.fillCircle(cx - 220, cy + 5, 10);
+          this.exitBoulderVisual.lineStyle(2, 0x5a5a4a, 0.4);
+          this.exitBoulderVisual.strokeCircle(cx - 230, cy, 30);
+          this.exitBoulderVisual.setDepth(4);
         }
       }
     }

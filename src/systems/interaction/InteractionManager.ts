@@ -25,13 +25,20 @@ export class InteractionManager {
   }
 
   public initialize(scene: Phaser.Scene, player: Phaser.GameObjects.GameObject): void {
-    if (this.initialized) return;
+    if (this.initialized) {
+      Logger.getInstance().warn("[InteractionManager] Already initialized, use setPlayer instead");
+      return;
+    }
     this.scene = scene;
     this.player = player;
     this.prompt = new InteractionPrompt(scene);
     this.interactables = [];
     this.initialized = true;
     Logger.getInstance().log("[InteractionManager] Initialized");
+  }
+
+  public setPlayer(player: Phaser.GameObjects.GameObject): void {
+    this.player = player;
   }
 
   public register(interactable: IInteractable): void {

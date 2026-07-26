@@ -135,6 +135,9 @@ export class CombatController {
         this.stateTimer -= dt;
         if (this.stateTimer <= 0) {
           this.state = CombatState.IDLE;
+          if (this.attackQueue.length === 0) {
+            this.comboStep = 0;
+          }
           this.processQueue();
         }
         break;

@@ -11,6 +11,10 @@ export class EnemyHealth {
     this.health = new HealthComponent(maxHealth);
   }
 
+  public isCallbackSet(): boolean {
+    return this.onDeathCallback !== null && this.onDamageCallback !== null;
+  }
+
   public setOnDeath(callback: () => void): void {
     this.onDeathCallback = callback;
   }

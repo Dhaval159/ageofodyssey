@@ -17,7 +17,7 @@ export class DamageSystem {
 
     const damageDealt = target.takeDamage(baseDamage);
     const targetKilled = !target.isAlive();
-    const overkill = targetKilled ? Math.abs(target.getCurrentHealth()) : 0;
+    const overkill = targetKilled ? (baseDamage - damageDealt) : 0;
 
     return { damageDealt, targetKilled, overkill };
   }
