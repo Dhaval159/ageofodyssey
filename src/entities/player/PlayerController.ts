@@ -24,6 +24,13 @@ const CAN_MOVE_STATES = new Set([
   PlayerStateId.HEAVY_ATTACKING,
 ]);
 
+const INPUT_BUFFER_MS = 0.15;
+
+interface BufferedInput {
+  type: "attack" | "heavy_attack" | "roll";
+  remaining: number;
+}
+
 export class PlayerController {
   private config: IPlayerConfig;
   private stateMachine: PlayerStateMachine;
@@ -41,6 +48,8 @@ export class PlayerController {
   private facingDirection: { x: number; y: number } = { x: 0, y: 1 };
 
   private worldBounds: { minX: number; minY: number; maxX: number; maxY: number } | null = null;
+
+  private inputBuffer: BufferedInput | null = null;
 
   constructor(config: IPlayerConfig) {
     this.config = config;
@@ -70,13 +79,52 @@ export class PlayerController {
 
   public update(dt: number, input: IPlayerInput): void {
     this.currentInput = input;
+
+    if (input.isAttacking) this.bufferInput("attack");
+    if (input.isHeavyAttacking) this.bufferInput("heavy_attack");
+    if (input.isRolling) this.bufferInput("roll");
+    this.tickInputBuffer(dt);
+
     this.stateMachine.update(dt);
     this.updateMovement(dt);
   }
 
+  public consumeBufferedAttack(): boolean {
+    if (!this.inputBuffer) return false;
+    if (this.inputBuffer.type === "attack" || this.inputBuffer.type === "heavy_attack") {
+      this.inputBuffer = null;
+      return true;
+    }
+    return false;
+  }
+
+  public consumeBufferedRoll(): boolean {
+    if (this.inputBuffer && this.inputBuffer.type === "roll") {
+      this.inputBuffer = null;
+      return true;
+    }
+    return false;
+  }
+
+  public hasBufferedInput(): boolean {
+    return this.inputBuffer !== null;
+  }
+
+  private bufferInput(type: BufferedInput["type"]): void {
+    this.inputBuffer = { type, remaining: INPUT_BUFFER_MS };
+  }
+
+  private tickInputBuffer(dt: number): void {
+    if (!this.inputBuffer) return;
+    this.inputBuffer.remaining -= dt;
+    if (this.inputBuffer.remaining <= 0) {
+      this.inputBuffer = null;
+    }
+  }
+
   private updateMovement(dt: number): void {
     const stateId = this.stateMachine.getCurrentStateId();
-    const speed = STATE_SPEEDS[stateId] ?? 0;
+    const speed = STATE_SPEEDS[stateId as PlayerStateId] ?? 0;
 
     let targetVx = 0;
     let targetVy = 0;
@@ -117,7 +165,7 @@ export class PlayerController {
       this.velocity.y = (this.velocity.y / velLen) * maxSpeed;
     }
 
-    const zeroThreshold = 1.0;
+    const zeroThreshold = 1.5;
     if (Math.abs(this.velocity.x) < zeroThreshold) this.velocity.x = 0;
     if (Math.abs(this.velocity.y) < zeroThreshold) this.velocity.y = 0;
 

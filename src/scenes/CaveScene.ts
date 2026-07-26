@@ -27,6 +27,7 @@ import { StoneGate } from "../entities/world/StoneGate";
 import { BossEncounterController } from "../entities/bosses/framework/BossEncounterController";
 import { EnemyManager } from "../entities/enemies/framework/EnemyManager";
 import { EffectsManager } from "../systems/effects/EffectsManager";
+import { HUD } from "../systems/effects/HUD";
 
 const CAVE_W = 4500;
 const CAVE_H = 2200;
@@ -65,6 +66,7 @@ export default class CaveScene extends Phaser.Scene {
     private collapsedBlockage: WorldObject[] = [];
     private frightenedCrew: CrewNPC | null = null;
     private sheepList: Sheep[] = [];
+    private hud: HUD | null = null;
     private gameStarted: boolean = false;
     private crewFound: boolean = false;
     private crateMoved: boolean = false;
@@ -114,10 +116,12 @@ export default class CaveScene extends Phaser.Scene {
         EnemyManager.getInstance().initialize();
         EffectsManager.getInstance().initialize(this);
 
-        this.collisionManager = CollisionManager.getInstance();
-        this.collisionManager.initialize(this);
+    this.collisionManager = CollisionManager.getInstance();
+    this.collisionManager.initialize(this);
 
-        this.buildCaveTerrain();
+    this.hud = new HUD(this);
+
+    this.buildCaveTerrain();
         this.buildChambers();
         this.buildWallsAndBoundaries();
         this.buildPuzzles();
@@ -2321,11 +2325,17 @@ export default class CaveScene extends Phaser.Scene {
         }
 
         if (this.cameraManager) {
+            if (this.player) {
+                const stateId = this.player.getController().getStateMachine().getCurrentStateId();
+                const isCombat = stateId === "ATTACKING" || stateId === "HEAVY_ATTACKING";
+                this.cameraManager.setCombatZoom(isCombat);
+            }
             this.cameraManager.update(delta);
         }
 
         this.interactionManager?.update();
         this.objectiveManager?.update(delta);
+        this.hud?.update(this.player);
         this.updateAtmosphere(delta);
         this.updateCampfireFlicker(delta);
 

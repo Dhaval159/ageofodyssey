@@ -25,11 +25,11 @@ export class EnemyAI {
   private stuckAvoidTimer: number = 0;
   private lastPosition: { x: number; y: number } = { x: 0, y: 0 };
 
-  private readonly MOVE_SMOOTHING: number = 14;
-  private readonly VELOCITY_DEAD_ZONE: number = 0.5;
-  private readonly STUCK_THRESHOLD: number = 0.5;
-  private readonly STUCK_TIME: number = 0.4;
-  private readonly AVOID_TIME: number = 0.3;
+  private readonly MOVE_SMOOTHING: number = 12;
+  private readonly VELOCITY_DEAD_ZONE: number = 0.8;
+  private readonly STUCK_THRESHOLD: number = 0.8;
+  private readonly STUCK_TIME: number = 0.5;
+  private readonly AVOID_TIME: number = 0.25;
   private readonly SLOW_RADIUS: number = 32;
 
   private idCounter: number = 0;
@@ -201,9 +201,9 @@ export class EnemyAI {
 
     if (this.stuckAvoidTimer > 0) {
       this.stuckAvoidTimer -= dt;
-      const avoidSpeed = this.config.speed * 0.6;
-      this.velocity.x += (this.stuckDirection.x * avoidSpeed - this.velocity.x) * dt * 10;
-      this.velocity.y += (this.stuckDirection.y * avoidSpeed - this.velocity.y) * dt * 10;
+      const avoidSpeed = this.config.speed * 0.5;
+      this.targetVelocity.x += this.stuckDirection.x * avoidSpeed;
+      this.targetVelocity.y += this.stuckDirection.y * avoidSpeed;
     }
   }
 

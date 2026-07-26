@@ -65,6 +65,11 @@ function checkActionInputs(controller: PlayerController): PlayerStateId | null {
   if (input.isAttacking) return PlayerStateId.ATTACKING;
   if (input.isHeavyAttacking) return PlayerStateId.HEAVY_ATTACKING;
   if (input.isBlocking) return PlayerStateId.BLOCKING;
+  if (controller.consumeBufferedRoll()) return PlayerStateId.ROLLING;
+  if (controller.consumeBufferedAttack()) {
+    const buf = controller.hasBufferedInput();
+    return buf ? PlayerStateId.ATTACKING : PlayerStateId.ATTACKING;
+  }
   return null;
 }
 
@@ -128,7 +133,7 @@ export class RunningState implements IPlayerState {
 export class RollingState implements IPlayerState {
   public id = PlayerStateId.ROLLING;
   private timer: number = 0;
-  private readonly DURATION: number = 0.35;
+  private readonly DURATION: number = 0.3;
 
   public enter(_controller: PlayerController): void {
     this.timer = this.DURATION;
@@ -146,28 +151,35 @@ export class AttackingState implements IPlayerState {
   public id = PlayerStateId.ATTACKING;
   private timer: number = 0;
   private totalDuration: number = 0;
-  private readonly RECOVERY_MOVE_THRESHOLD: number = 0.65;
+  private readonly RECOVERY_MOVE_THRESHOLD: number = 0.60;
+  private comboRequested: boolean = false;
 
   public enter(controller: PlayerController): void {
     this.totalDuration = controller.getConfig().combat.lightAttackDuration;
     this.timer = this.totalDuration;
+    this.comboRequested = false;
   }
   public update(controller: PlayerController, dt: number): void {
     this.timer -= dt;
     const progress = 1 - this.timer / this.totalDuration;
     const input = controller.getCurrentInput();
 
+    if (input.isAttacking || controller.consumeBufferedAttack()) {
+      this.comboRequested = true;
+    }
+
     if (progress >= this.RECOVERY_MOVE_THRESHOLD) {
-      if (!input.isAttacking) {
-        if (input.moveVector.x !== 0 || input.moveVector.y !== 0) {
-          controller.getStateMachine().transitionTo(checkMovementState(controller));
-          return;
-        }
+      if (this.comboRequested && progress < 0.85) {
+        this.comboRequested = false;
+      }
+      if (input.moveVector.x !== 0 || input.moveVector.y !== 0) {
+        controller.getStateMachine().transitionTo(checkMovementState(controller));
+        return;
       }
     }
 
     if (this.timer <= 0) {
-      if (input.isAttacking) {
+      if (this.comboRequested) {
         controller.getStateMachine().transitionTo(PlayerStateId.ATTACKING);
         return;
       }
@@ -181,28 +193,35 @@ export class HeavyAttackingState implements IPlayerState {
   public id = PlayerStateId.HEAVY_ATTACKING;
   private timer: number = 0;
   private totalDuration: number = 0;
-  private readonly RECOVERY_MOVE_THRESHOLD: number = 0.6;
+  private readonly RECOVERY_MOVE_THRESHOLD: number = 0.55;
+  private comboRequested: boolean = false;
 
   public enter(controller: PlayerController): void {
     this.totalDuration = controller.getConfig().combat.heavyAttackDuration;
     this.timer = this.totalDuration;
+    this.comboRequested = false;
   }
   public update(controller: PlayerController, dt: number): void {
     this.timer -= dt;
     const progress = 1 - this.timer / this.totalDuration;
     const input = controller.getCurrentInput();
 
+    if (input.isHeavyAttacking || controller.consumeBufferedAttack()) {
+      this.comboRequested = true;
+    }
+
     if (progress >= this.RECOVERY_MOVE_THRESHOLD) {
-      if (!input.isHeavyAttacking) {
-        if (input.moveVector.x !== 0 || input.moveVector.y !== 0) {
-          controller.getStateMachine().transitionTo(checkMovementState(controller));
-          return;
-        }
+      if (this.comboRequested && progress < 0.8) {
+        this.comboRequested = false;
+      }
+      if (input.moveVector.x !== 0 || input.moveVector.y !== 0) {
+        controller.getStateMachine().transitionTo(checkMovementState(controller));
+        return;
       }
     }
 
     if (this.timer <= 0) {
-      if (input.isHeavyAttacking) {
+      if (this.comboRequested) {
         controller.getStateMachine().transitionTo(PlayerStateId.HEAVY_ATTACKING);
         return;
       }
@@ -227,7 +246,7 @@ export class BlockingState implements IPlayerState {
 export class HurtState implements IPlayerState {
   public id = PlayerStateId.HURT;
   private timer: number = 0;
-  private readonly DURATION: number = 0.3;
+  private readonly DURATION: number = 0.25;
 
   public enter(_controller: PlayerController): void {
     this.timer = this.DURATION;

@@ -213,29 +213,26 @@ export class EnemyManager {
             Logger.getInstance().log(`[Combat] Player hit ${enemyId} for ${damage} damage`);
 
             if (scene) {
-              const shakeIntensity = Math.min(0.003 + damage * 0.0003, 0.015);
               this.triggerHitPause();
-              scene.cameras.main.shake(80, shakeIntensity);
-              scene.cameras.main.flash(80, 255, 255, 255);
+              scene.cameras.main.flash(40, 255, 255, 255);
+              EffectsManager.getInstance().emitHitSpark(
+                (enemy.x + hb.shape.x) / 2,
+                (enemy.y + hb.shape.y) / 2,
+                12
+              );
             }
-
-            EffectsManager.getInstance().emitHitSpark(
-              (enemy.x + hb.shape.x) / 2,
-              (enemy.y + hb.shape.y) / 2,
-              10
-            );
 
             this.flashEnemySprite(enemy);
 
             enemy.applyKnockback(
               { x: enemy.x - hb.shape.x, y: enemy.y - hb.shape.y },
-              200
+              250
             );
 
             this.showEnemyDamagePopup(enemy, damage);
 
             if (!enemy.isAlive()) {
-              this.triggerDeathFreeze(scene);
+              this.triggerDeathEffect(scene, enemy, (enemy.x + hb.shape.x) / 2, (enemy.y + hb.shape.y) / 2);
             }
           }
         }
@@ -248,27 +245,27 @@ export class EnemyManager {
     if (!scene) return;
 
     const text = scene.add.text(
-      enemy.x + Phaser.Math.Between(-10, 10),
-      enemy.y - 25,
+      enemy.x + Phaser.Math.Between(-12, 12),
+      enemy.y - 28,
       `-${amount}`,
       {
-        fontSize: "16px",
-        color: "#ffaa00",
+        fontSize: "18px",
+        color: "#ffcc44",
         stroke: "#000000",
-        strokeThickness: 4,
+        strokeThickness: 5,
         fontStyle: "bold",
       }
     );
     text.setDepth(9999);
-    text.setScale(1.1);
+    text.setScale(1.0);
 
     scene.tweens.add({
       targets: text,
-      y: text.y - 35,
+      y: text.y - 40,
       alpha: 0,
-      scaleX: 0.7,
-      scaleY: 0.7,
-      duration: 600,
+      scaleX: 0.6,
+      scaleY: 0.6,
+      duration: 700,
       ease: "Power2",
       onComplete: () => text.destroy(),
     });
@@ -403,15 +400,11 @@ export class EnemyManager {
     }
   }
 
-  private triggerDeathFreeze(scene: Phaser.Scene | null): void {
+  private triggerDeathEffect(scene: Phaser.Scene | null, _enemy: Enemy, hitX: number, hitY: number): void {
     if (!scene) return;
-    scene.time.timeScale = 0.15;
-    scene.cameras.main.shake(150, 0.008);
-    scene.time.delayedCall(200, () => {
-      if (scene.scene.isActive()) {
-        scene.time.timeScale = 1;
-      }
-    });
+    EffectsManager.getInstance().emitHitSpark(hitX, hitY, 18);
+    EffectsManager.getInstance().emitRockDebris(hitX, hitY, 8);
+    scene.cameras.main.shake(120, 0.006);
   }
 
   private getHitboxOwnerPosition(ownerId: string): { x: number; y: number } | null {

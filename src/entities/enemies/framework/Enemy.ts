@@ -12,6 +12,7 @@ export class Enemy extends Phaser.GameObjects.Container {
   public combatController: CombatController | null = null;
   protected entityId: string;
   private deathTimer: number = 0;
+  private deathStarted: boolean = false;
 
   constructor(
     scene: Phaser.Scene,
@@ -53,6 +54,10 @@ export class Enemy extends Phaser.GameObjects.Container {
 
     if (stateId === EnemyStateId.DEAD) {
       body.setVelocity(0, 0);
+      if (!this.deathStarted) {
+        this.deathStarted = true;
+        this.startDeathVisual();
+      }
       this.deathTimer += dt;
       const config = this.controller.getConfig();
       if (this.deathTimer >= config.deathRemoveDelay) {
@@ -86,6 +91,17 @@ export class Enemy extends Phaser.GameObjects.Container {
         sprite.setFlipX(dir.x < 0);
       }
     }
+  }
+
+  private startDeathVisual(): void {
+    if (!this.scene) return;
+    this.scene.tweens.add({
+      targets: this,
+      alpha: 0,
+      angle: 90,
+      duration: 400,
+      ease: "Power2",
+    });
   }
 
   public getEntityId(): string {

@@ -19,6 +19,7 @@ import { ObjectiveManager } from "../systems/objectives/ObjectiveManager";
 import { CheckpointSystem } from "../systems/save/CheckpointSystem";
 import { IInteractable } from "../systems/interaction/IInteractable";
 import { InteractableProp, InteractablePropConfig } from "../entities/props/InteractableProp";
+import { HUD } from "../systems/effects/HUD";
 
 const MAP_W = 6200;
 const MAP_H = 1600;
@@ -53,6 +54,7 @@ export default class MountainPassScene extends Phaser.Scene {
     private mountainProps: InteractableProp[] = [];
     private bridgeGapObject: WorldObject | null = null;
     private bridgeLoweredGraphics: Phaser.GameObjects.Graphics | null = null;
+    private hud: HUD | null = null;
     private campfireGraphics: Phaser.GameObjects.Graphics | null = null;
     private campfirePos: { x: number; y: number } = { x: 0, y: 0 };
     private campfireFlickerTimer: number = 0;
@@ -89,10 +91,12 @@ export default class MountainPassScene extends Phaser.Scene {
 
         CombatManager.getInstance().initialize();
 
-        this.collisionManager = CollisionManager.getInstance();
-        this.collisionManager.initialize(this);
+    this.collisionManager = CollisionManager.getInstance();
+    this.collisionManager.initialize(this);
 
-        this.buildTerrain();
+    this.hud = new HUD(this);
+
+    this.buildTerrain();
         this.buildForestClearing();
         this.buildMountainTrail();
         this.buildCollapsedRuins();
@@ -1252,11 +1256,9 @@ export default class MountainPassScene extends Phaser.Scene {
 
         for (let i = 0; i < this.torchGraphics.length; i++) {
             const g = this.torchGraphics[i];
-            if (g && Math.random() < 0.04) {
-                g.setVisible(false);
-                this.time.delayedCall(40, () => {
-                    if (g) g.setVisible(true);
-                });
+            if (g) {
+                const flicker = 0.8 + Math.random() * 0.2;
+                g.setAlpha(flicker);
             }
         }
 
@@ -1414,11 +1416,17 @@ export default class MountainPassScene extends Phaser.Scene {
         }
 
         if (this.cameraManager) {
+            if (this.player) {
+                const stateId = this.player.getController().getStateMachine().getCurrentStateId();
+                const isCombat = stateId === "ATTACKING" || stateId === "HEAVY_ATTACKING";
+                this.cameraManager.setCombatZoom(isCombat);
+            }
             this.cameraManager.update(delta);
         }
 
         this.interactionManager?.update();
         this.objectiveManager?.update(delta);
+        this.hud?.update(this.player);
         this.updateAtmosphere(delta);
         this.updateCampfireFlicker(delta);
 

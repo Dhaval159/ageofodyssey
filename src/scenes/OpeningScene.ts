@@ -22,6 +22,7 @@ import { CrewNPC, CrewNPCConfig } from "../entities/npc/CrewNPC";
 import { InteractableProp, InteractablePropConfig } from "../entities/props/InteractableProp";
 import { Wolf } from "../entities/enemies/wolf/Wolf";
 import { EnemyManager } from "../entities/enemies/framework/EnemyManager";
+import { HUD } from "../systems/effects/HUD";
 
 const WORLD_W = 5800;
 const WORLD_H = 2200;
@@ -51,6 +52,7 @@ export default class OpeningScene extends Phaser.Scene {
   private dialogueManager: DialogueManager | null = null;
   private objectiveManager: ObjectiveManager | null = null;
   private checkpoints: CheckpointSystem | null = null;
+  private hud: HUD | null = null;
   private crewNPCs: CrewNPC[] = [];
   private forestProps: InteractableProp[] = [];
   private worldObjects: WorldObject[] = [];
@@ -99,6 +101,8 @@ export default class OpeningScene extends Phaser.Scene {
 
     this.collisionManager = CollisionManager.getInstance();
     this.collisionManager.initialize(this);
+
+    this.hud = new HUD(this);
 
     this.buildTerrain();
     this.buildFeatures();
@@ -1696,10 +1700,8 @@ export default class OpeningScene extends Phaser.Scene {
     for (let i = 0; i < this.torchGraphics.length; i++) {
       if (px2 > 4000 && this.torchGraphics[i]) {
         const g = this.torchGraphics[i];
-        if (Math.random() < 0.05) {
-          g.setVisible(!g.visible);
-          this.time.delayedCall(50, () => { if (g) g.setVisible(true); });
-        }
+        const flicker = 0.8 + Math.random() * 0.2;
+        g.setAlpha(flicker);
       }
     }
   }
@@ -1748,6 +1750,11 @@ export default class OpeningScene extends Phaser.Scene {
     }
 
     if (this.cameraManager) {
+      if (this.player) {
+        const stateId = this.player.getController().getStateMachine().getCurrentStateId();
+        const isCombat = stateId === "ATTACKING" || stateId === "HEAVY_ATTACKING";
+        this.cameraManager.setCombatZoom(isCombat);
+      }
       this.cameraManager.update(delta);
     }
 
@@ -1758,6 +1765,7 @@ export default class OpeningScene extends Phaser.Scene {
     }
 
     this.objectiveManager?.update(delta);
+    this.hud?.update(this.player);
     this.updateCampfireFlicker(delta);
     this.updateAtmosphere(delta);
 

@@ -40,6 +40,8 @@ export class CameraManager {
   private shakeState: ICameraShakeState | null = null;
   private impulseState: ICameraImpulseState | null = null;
   private isFollowing: boolean = false;
+  private combatZoomActive: boolean = false;
+  private currentZoom: number = 1;
 
   private readonly minZoom: number;
   private readonly maxZoom: number;
@@ -176,6 +178,13 @@ export class CameraManager {
     }
 
     this.camera.centerOn(finalX, finalY);
+
+    const targetZoom = this.combatZoomActive ? 1.15 : 1.0;
+    const zoomDiff = targetZoom - this.currentZoom;
+    if (Math.abs(zoomDiff) > 0.001) {
+      this.currentZoom += zoomDiff * 0.06;
+      this.camera.setZoom(this.currentZoom);
+    }
   }
 
   public shake(config: ICameraShakeConfig): void {
@@ -190,6 +199,11 @@ export class CameraManager {
   public setZoom(zoom: number): void {
     const clamped = Phaser.Math.Clamp(zoom, this.minZoom, this.maxZoom);
     this.camera.setZoom(clamped);
+    this.currentZoom = clamped;
+  }
+
+  public setCombatZoom(active: boolean): void {
+    this.combatZoomActive = active;
   }
 
   public getZoom(): number {
