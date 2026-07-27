@@ -1,8 +1,10 @@
 import Phaser from "phaser";
 import { GAME_CONFIG } from "../../../constants/GameConstants";
+import { UIHelpers } from "../../../utils/UIHelpers";
 
 export class BossHealthUI extends Phaser.GameObjects.Container {
   private bossName: string;
+  private screenY: number;
   private maxHealth: number;
   private currentHealth: number;
   private targetHealth: number;
@@ -20,6 +22,7 @@ export class BossHealthUI extends Phaser.GameObjects.Container {
 
   constructor(scene: Phaser.Scene, name: string, maxHp: number) {
     super(scene, GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT + 100);
+    this.screenY = GAME_CONFIG.HEIGHT + 100;
 
     this.bossName = name;
     this.maxHealth = maxHp;
@@ -79,7 +82,7 @@ export class BossHealthUI extends Phaser.GameObjects.Container {
     this.isTransitioning = true;
     this.scene.tweens.add({
       targets: this,
-      y: GAME_CONFIG.HEIGHT - 75,
+      screenY: GAME_CONFIG.HEIGHT - 75,
       alpha: { start: 0, to: 1 },
       duration: 1000,
       ease: "Cubic.easeOut",
@@ -94,7 +97,7 @@ export class BossHealthUI extends Phaser.GameObjects.Container {
     this.isTransitioning = true;
     this.scene.tweens.add({
       targets: this,
-      y: GAME_CONFIG.HEIGHT + 100,
+      screenY: GAME_CONFIG.HEIGHT + 100,
       alpha: 0,
       duration: 800,
       ease: "Cubic.easeIn",
@@ -114,6 +117,7 @@ export class BossHealthUI extends Phaser.GameObjects.Container {
   }
 
   public update(_time: number, delta: number): void {
+    UIHelpers.adjustForZoom(this, GAME_CONFIG.WIDTH / 2, this.screenY);
     // Smooth lerp
     if (this.currentHealth !== this.targetHealth) {
       const diff = this.targetHealth - this.currentHealth;

@@ -6,6 +6,7 @@ import { WorldBounds } from "../world/WorldBounds";
 import { DEFAULT_LEVEL_CONFIG } from "../data/LevelConfig";
 import { WORLD_CONSTANTS } from "../constants/WorldConstants";
 import { Player } from "../entities/player/Player";
+import { EnvironmentManager } from "../systems/environment/EnvironmentManager";
 
 export class WorldManager {
   private static instance: WorldManager;
@@ -14,6 +15,7 @@ export class WorldManager {
   private spawnManager: SpawnManager;
   private worldBounds: WorldBounds;
   private levelConfig: typeof DEFAULT_LEVEL_CONFIG;
+  private environmentManager!: EnvironmentManager;
 
   private _player: Player | null = null;
 
@@ -44,10 +46,14 @@ export class WorldManager {
   private setupWorld(): void {
     const { width, height } = this.levelConfig.worldBounds;
     this.collisionManager.initialize(this.scene);
+
+    this.environmentManager = new EnvironmentManager(this.scene, "forest");
+    this.environmentManager.initialize(width, height);
+
     this.spawnManager.createGround(width, height);
     this.spawnManager.createBoundary(width, height);
 
-    this.spawnManager.generateLevelObjects(this.worldBounds, {
+    const objects = this.spawnManager.generateLevelObjects(this.worldBounds, {
       rockCount: WORLD_CONSTANTS.OBJECTS.ROCK_COUNT,
       treeCount: WORLD_CONSTANTS.OBJECTS.TREE_COUNT,
       wallCount: WORLD_CONSTANTS.OBJECTS.WALL_COUNT,
@@ -56,6 +62,9 @@ export class WorldManager {
       playerSpawnY: height / 2,
       spawnBuffer: WORLD_CONSTANTS.OBJECTS.PLAYER_SPAWN_BUFFER,
     });
+
+    this.environmentManager.decorateWorldObjects(objects);
+    this.environmentManager.scatterDecorations(0.04, width / 2, height / 2);
 
     Logger.getInstance().log("[WorldManager] World setup complete");
   }

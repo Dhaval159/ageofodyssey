@@ -89,4 +89,23 @@ export class UIHelpers {
       }
     );
   }
+
+  /**
+   * Adjusts a UI element (typically with scrollFactor = 0) to maintain its visual position and scale on screen
+   * regardless of the camera's zoom level.
+   */
+  public static adjustForZoom(
+    element: { setScale: Function; setPosition: Function; scene: Phaser.Scene },
+    originalX: number,
+    originalY: number,
+    originalScale: number = 1.0
+  ): void {
+    const camera = element.scene.cameras.main;
+    const z = camera.zoom;
+    element.setScale(originalScale / z);
+    element.setPosition(
+      camera.width / 2 + (originalX - camera.width / 2) / z,
+      camera.height / 2 + (originalY - camera.height / 2) / z
+    );
+  }
 }

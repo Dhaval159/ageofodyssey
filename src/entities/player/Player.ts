@@ -75,7 +75,7 @@ export class Player extends Phaser.GameObjects.Container {
 
     const sprite = this.animationController.getSprite();
     sprite.setPosition(0, 0);
-    sprite.setScale(48 / 448); // Scale Odysseus sprite (448px height) to match the player container height (48px)
+    sprite.setScale((48 / 448) * 1.15); // Scale Odysseus sprite (448px height) to match the player container height (48px) scaled up by 1.15x
     this.add(sprite);
 
     const weapon = WeaponManager.getInstance().createWeapon(scene, config.combat.weaponKey);

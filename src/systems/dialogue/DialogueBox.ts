@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { UIHelpers } from "../../utils/UIHelpers";
 
 export class DialogueBox {
   private scene: Phaser.Scene;
@@ -118,6 +119,7 @@ export class DialogueBox {
   }
 
   public update(delta: number): void {
+    UIHelpers.adjustForZoom(this.container, 0, 0);
     if (!this.isVisible || !this.isTyping) return;
 
     this.typingTimer += delta;

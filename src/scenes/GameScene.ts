@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { Logger } from "../core/Logger";
+import { UIHelpers } from "../utils/UIHelpers";
 import { SceneTransitionManager } from "../core/SceneTransitionManager";
 import { GAME_CONFIG } from "../constants/GameConstants";
 import { InputManager } from "../core/InputManager";
@@ -26,6 +27,8 @@ export default class GameScene extends Phaser.Scene {
   private enemyGroup: Phaser.Physics.Arcade.Group | null = null;
   private hud: HUD | null = null;
   private effects: EffectsManager | null = null;
+  private instructions: Phaser.GameObjects.Text | null = null;
+  private backText: Phaser.GameObjects.Text | null = null;
 
   constructor() {
     super({ key: "GameScene" });
@@ -133,32 +136,39 @@ export default class GameScene extends Phaser.Scene {
 
   private createInstructions(): void {
     const { width, height } = this.scale;
-    const instructions = this.add.text(16, 16, "Move: WASD/Arrows | Run: Hold Shift\nF3: Debug | Back to Menu: Click text below\nAttack: J | Heavy Attack: K", {
+    this.instructions = this.add.text(16, 16, "Move: WASD/Arrows | Run: Hold Shift\nF3: Debug | Back to Menu: Click text below\nAttack: J | Heavy Attack: K", {
       fontSize: "16px",
       color: "#88aaff",
       backgroundColor: "#00000088",
       padding: { x: 8, y: 8 },
     });
-    instructions.setScrollFactor(0);
+    this.instructions.setScrollFactor(0);
 
-    const backText = this.add.text(width / 2, height - 40, "Back to Menu", {
+    this.backText = this.add.text(width / 2, height - 40, "Back to Menu", {
       fontSize: "20px",
       color: "#aaaaaa",
       backgroundColor: "#000000aa",
       padding: { x: 12, y: 6 },
     });
-    backText.setOrigin(0.5);
-    backText.setInteractive({ useHandCursor: true });
-    backText.setScrollFactor(0);
+    this.backText.setOrigin(0.5);
+    this.backText.setInteractive({ useHandCursor: true });
+    this.backText.setScrollFactor(0);
 
-    backText.on("pointerover", () => backText.setColor("#ff4444"));
-    backText.on("pointerout", () => backText.setColor("#aaaaaa"));
-    backText.on("pointerdown", () => {
+    this.backText.on("pointerover", () => this.backText?.setColor("#ff4444"));
+    this.backText.on("pointerout", () => this.backText?.setColor("#aaaaaa"));
+    this.backText.on("pointerdown", () => {
       SceneTransitionManager.getInstance().transitionTo("MainMenuScene", { fadeDuration: 500 });
     });
   }
 
   update(time: number, delta: number): void {
+    if (this.instructions) {
+      UIHelpers.adjustForZoom(this.instructions, 16, 16);
+    }
+    if (this.backText) {
+      UIHelpers.adjustForZoom(this.backText, this.scale.width / 2, this.scale.height - 40);
+    }
+
     InputManager.getInstance().update();
 
     const enemyMgr = EnemyManager.getInstance();

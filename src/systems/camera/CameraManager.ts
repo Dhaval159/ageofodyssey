@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { Logger } from "../../core/Logger";
+import { WORLD_CONSTANTS } from "../../constants/WorldConstants";
 
 export interface ICameraConfig {
   lerpX: number;
@@ -41,7 +42,8 @@ export class CameraManager {
   private impulseState: ICameraImpulseState | null = null;
   private isFollowing: boolean = false;
   private combatZoomActive: boolean = false;
-  private currentZoom: number = 1;
+  private baseZoom: number = WORLD_CONSTANTS.CAMERA.DEFAULT_ZOOM;
+  private currentZoom: number = WORLD_CONSTANTS.CAMERA.DEFAULT_ZOOM;
 
   private readonly minZoom: number;
   private readonly maxZoom: number;
@@ -69,9 +71,9 @@ export class CameraManager {
       this.camera.setRoundPixels(true);
     }
 
-    if (config.initialZoom !== undefined) {
-      this.camera.setZoom(config.initialZoom);
-    }
+    this.baseZoom = config.initialZoom ?? WORLD_CONSTANTS.CAMERA.DEFAULT_ZOOM;
+    this.currentZoom = this.baseZoom;
+    this.camera.setZoom(this.baseZoom);
   }
 
   public follow(target: Phaser.GameObjects.GameObject): void {
@@ -171,15 +173,20 @@ export class CameraManager {
 
     if (this.worldBounds) {
       const b = this.worldBounds;
-      const halfW = viewW / 2;
-      const halfH = viewH / 2;
-      finalX = Phaser.Math.Clamp(finalX, b.x + halfW, b.x + b.width - halfW);
-      finalY = Phaser.Math.Clamp(finalY, b.y + halfH, b.y + b.height - halfH);
+      const zoom = this.currentZoom;
+      const halfW = (viewW / zoom) / 2;
+      const halfH = (viewH / zoom) / 2;
+      const minX = b.width > viewW / zoom ? b.x + halfW : b.x + b.width / 2;
+      const maxX = b.width > viewW / zoom ? b.x + b.width - halfW : b.x + b.width / 2;
+      const minY = b.height > viewH / zoom ? b.y + halfH : b.y + b.height / 2;
+      const maxY = b.height > viewH / zoom ? b.y + b.height - halfH : b.y + b.height / 2;
+      finalX = Phaser.Math.Clamp(finalX, minX, maxX);
+      finalY = Phaser.Math.Clamp(finalY, minY, maxY);
     }
 
     this.camera.centerOn(finalX, finalY);
 
-    const targetZoom = this.combatZoomActive ? 1.15 : 1.0;
+    const targetZoom = this.combatZoomActive ? this.baseZoom * 1.15 : this.baseZoom;
     const zoomDiff = targetZoom - this.currentZoom;
     if (Math.abs(zoomDiff) > 0.001) {
       this.currentZoom += zoomDiff * 0.06;
@@ -200,6 +207,7 @@ export class CameraManager {
     const clamped = Phaser.Math.Clamp(zoom, this.minZoom, this.maxZoom);
     this.camera.setZoom(clamped);
     this.currentZoom = clamped;
+    this.baseZoom = clamped;
   }
 
   public setCombatZoom(active: boolean): void {

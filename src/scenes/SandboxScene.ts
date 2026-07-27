@@ -23,6 +23,7 @@ import { PressurePlate } from "../entities/interactables/PressurePlate";
 import { MoveableCrate } from "../entities/interactables/MoveableCrate";
 import { InteractableTorch } from "../entities/interactables/InteractableTorch";
 import { InspectPoint } from "../entities/interactables/InspectPoint";
+import { EnvironmentManager } from "../systems/environment/EnvironmentManager";
 
 const WORLD_W = 1200;
 const WORLD_H = 800;
@@ -45,6 +46,7 @@ export default class SandboxScene extends Phaser.Scene {
   private torches: InteractableTorch[] = [];
   private inspectPoint: InspectPoint | null = null;
   private worldObjects: WorldObject[] = [];
+  private environmentManager!: EnvironmentManager;
 
   constructor() {
     super({ key: "SandboxScene" });
@@ -68,6 +70,10 @@ export default class SandboxScene extends Phaser.Scene {
     this.collisionManager = CollisionManager.getInstance();
     this.collisionManager.initialize(this);
 
+    this.environmentManager = new EnvironmentManager(this, "sandbox");
+    this.environmentManager.initialize(WORLD_W, WORLD_H);
+    this.environmentManager.scatterDecorations(0.04);
+
     this.buildGround();
     this.buildBoundary();
     this.buildWorldObjects();
@@ -81,25 +87,10 @@ export default class SandboxScene extends Phaser.Scene {
   }
 
   private buildGround(): void {
-    const ground = this.add.graphics();
-    ground.fillStyle(0x1a1a2e, 1);
-    ground.fillRect(0, 0, WORLD_W, WORLD_H);
-    ground.lineStyle(1, 0x2e2e4f, 0.5);
-    for (let x = 0; x <= WORLD_W; x += 80) {
-      ground.lineBetween(x, 0, x, WORLD_H);
-    }
-    for (let y = 0; y <= WORLD_H; y += 80) {
-      ground.lineBetween(0, y, WORLD_W, y);
-    }
-    ground.setDepth(-10);
+    // Replaced by EnvironmentManager tilemap
   }
 
   private buildBoundary(): void {
-    const boundary = this.add.graphics();
-    boundary.lineStyle(4, 0xff5555, 0.3);
-    boundary.strokeRect(0, 0, WORLD_W, WORLD_H);
-    boundary.setDepth(-5);
-
     this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
   }
 
@@ -125,6 +116,7 @@ export default class SandboxScene extends Phaser.Scene {
       this.worldObjects.push(rock);
       this.collisionManager?.addObject(rock);
     }
+    this.environmentManager.decorateWorldObjects(this.worldObjects);
   }
 
   private buildInteractables(): void {
@@ -258,7 +250,7 @@ export default class SandboxScene extends Phaser.Scene {
     });
     this.cameraManager.follow(this.player);
 
-    this.cameras.main.setZoom(1);
+    this.cameraManager.setZoom(WORLD_CONSTANTS.CAMERA.DEFAULT_ZOOM);
   }
 
   private setupSystems(): void {

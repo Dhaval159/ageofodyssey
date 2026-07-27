@@ -28,6 +28,7 @@ import { BossEncounterController } from "../entities/bosses/framework/BossEncoun
 import { EnemyManager } from "../entities/enemies/framework/EnemyManager";
 import { EffectsManager } from "../systems/effects/EffectsManager";
 import { HUD } from "../systems/effects/HUD";
+import { EnvironmentManager } from "../systems/environment/EnvironmentManager";
 
 const CAVE_W = 4500;
 const CAVE_H = 2200;
@@ -73,6 +74,7 @@ export default class CaveScene extends Phaser.Scene {
     private gateOpened: boolean = false;
     private bossArenaReached: boolean = false;
     private campfireG: Phaser.GameObjects.Graphics | null = null;
+    private environmentManager!: EnvironmentManager;
     private campfirePos: { x: number; y: number } = { x: 0, y: 0 };
     private campfireFlickerTimer: number = 0;
     private gateBlockingWalls: WorldObject[] = [];
@@ -133,35 +135,19 @@ export default class CaveScene extends Phaser.Scene {
         this.setupCamera();
         this.setupSystems();
         this.setupCheckpoints();
+
+        this.environmentManager.decorateWorldObjects(this.worldObjects);
+        this.environmentManager.scatterDecorations(0.04, this.player?.x, this.player?.y);
+
         this.openCaveEntrance();
     }
 
     private buildCaveTerrain(): void {
-        const floor = this.add.graphics();
-        floor.fillStyle(0x1a1a1a, 1);
-        floor.fillRect(0, 0, CAVE_W, CAVE_H);
-        floor.setDepth(-10);
-        this.terrainGraphics.push(floor);
-
-        const stoneTexture = this.add.graphics();
-        stoneTexture.fillStyle(0x222222, 0.3);
-        for (let i = 0; i < 120; i++) {
-            const sx = Phaser.Math.Between(0, CAVE_W);
-            const sy = Phaser.Math.Between(0, CAVE_H);
-            stoneTexture.fillRect(sx, sy, Phaser.Math.Between(20, 60), Phaser.Math.Between(10, 30));
-        }
-        stoneTexture.setDepth(-9);
-        this.terrainGraphics.push(stoneTexture);
-
-        const dampPatches = this.add.graphics();
-        dampPatches.fillStyle(0x1a2a2a, 0.2);
-        for (let i = 0; i < 40; i++) {
-            const dx = Phaser.Math.Between(0, CAVE_W);
-            const dy = Phaser.Math.Between(0, CAVE_H);
-            dampPatches.fillCircle(dx, dy, Phaser.Math.Between(15, 45));
-        }
-        dampPatches.setDepth(-9);
-        this.terrainGraphics.push(dampPatches);
+        this.environmentManager = new EnvironmentManager(this, "cave");
+        this.environmentManager.initialize(CAVE_W, CAVE_H);
+        
+        // Fill ground layer with mossy stone tiles (Tile 9)
+        this.environmentManager.fillGround(9);
     }
 
     private buildChambers(): void {
@@ -1746,7 +1732,7 @@ export default class CaveScene extends Phaser.Scene {
     private startGameplay(): void {
         if (!this.player || !this.cameraManager) return;
 
-        this.cameraManager.setZoom(1);
+        this.cameraManager.setZoom(WORLD_CONSTANTS.CAMERA.DEFAULT_ZOOM);
         this.cameraManager.follow(this.player);
         this.playerControlEnabled = true;
         this.gameStarted = true;

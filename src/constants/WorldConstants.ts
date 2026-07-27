@@ -9,6 +9,7 @@ export const WORLD_CONSTANTS = {
     LOOK_AHEAD_FACTOR: 0.25,
     MIN_ZOOM: 0.5,
     MAX_ZOOM: 2.0,
+    DEFAULT_ZOOM: 1.20,
     SHAKE_INTENSITY: 8,
     SHAKE_DURATION: 200,
   },

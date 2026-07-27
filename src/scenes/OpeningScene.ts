@@ -23,6 +23,7 @@ import { InteractableProp, InteractablePropConfig } from "../entities/props/Inte
 import { Wolf } from "../entities/enemies/wolf/Wolf";
 import { EnemyManager } from "../entities/enemies/framework/EnemyManager";
 import { HUD } from "../systems/effects/HUD";
+import { EnvironmentManager } from "../systems/environment/EnvironmentManager";
 
 const WORLD_W = 5800;
 const WORLD_H = 2200;
@@ -59,6 +60,7 @@ export default class OpeningScene extends Phaser.Scene {
   private terrainGraphics: Phaser.GameObjects.Graphics[] = [];
   private campfireGraphics: Phaser.GameObjects.Graphics | null = null;
   private enemyGroup: Phaser.Physics.Arcade.Group | null = null;
+  private environmentManager!: EnvironmentManager;
 
   private cinematicActive: boolean = true;
   private playerControlEnabled: boolean = false;
@@ -147,198 +149,39 @@ export default class OpeningScene extends Phaser.Scene {
   }
 
   private buildTerrain(): void {
-    const waterLayer = this.add.graphics();
-    waterLayer.fillStyle(0x1a3a5c, 1);
-    waterLayer.fillRect(0, 0, 400, WORLD_H);
-    waterLayer.fillRect(400, WORLD_H - 400, WORLD_W - 400, 400);
-    waterLayer.fillStyle(0x1a4a6c, 0.5);
-    for (let i = 0; i < 20; i++) {
-      const wx = Phaser.Math.Between(0, 380);
-      const wy = Phaser.Math.Between(0, WORLD_H);
-      waterLayer.fillEllipse(wx, wy, Phaser.Math.Between(30, 80), Phaser.Math.Between(10, 20));
-    }
-    waterLayer.setDepth(-10);
-    this.terrainGraphics.push(waterLayer);
+    this.environmentManager = new EnvironmentManager(this, "forest");
+    this.environmentManager.initialize(WORLD_W, WORLD_H);
 
-    const beachLayer = this.add.graphics();
-    beachLayer.fillStyle(0xd4a76a, 1);
-    beachLayer.fillRect(350, 750, 250, 700);
-    beachLayer.fillRect(550, 1250, 300, 150);
-    beachLayer.fillRect(300, 200, 200, 600);
-    beachLayer.fillStyle(0xc99a5e, 1);
-    beachLayer.fillRect(360, 760, 230, 680);
-    beachLayer.setDepth(-9);
-    this.terrainGraphics.push(beachLayer);
+    // Paint beach sand path (Tile 124)
+    this.environmentManager.fillGroundRegion(0, 0, 800, WORLD_H, 124);
 
-    const grassLayer = this.add.graphics();
-    grassLayer.fillStyle(0x3a7a3a, 1);
-    grassLayer.fillRect(550, 250, 1700, 1000);
-    grassLayer.fillRect(500, 250, 60, 300);
-    grassLayer.fillRect(820, 1250, WORLD_W - 820, 150);
-    grassLayer.fillStyle(0x4a8a4a, 0.3);
-    for (let i = 0; i < 60; i++) {
-      const gx = Phaser.Math.Between(550, 2200);
-      const gy = Phaser.Math.Between(300, 1300);
-      grassLayer.fillCircle(gx, gy, Phaser.Math.Between(10, 30));
-    }
-    grassLayer.setDepth(-9);
-    this.terrainGraphics.push(grassLayer);
+    // Paint grass forest (Tile 0)
+    this.environmentManager.fillGroundRegion(800, 0, 1300, WORLD_H, 0);
 
-    const forestFloor = this.add.graphics();
-    forestFloor.fillStyle(0x2a5a2a, 1);
-    forestFloor.fillRect(2100, 200, 2100, 1200);
-    forestFloor.fillStyle(0x326632, 0.4);
-    for (let i = 0; i < 80; i++) {
-      const fx = Phaser.Math.Between(2150, WORLD_W - 50);
-      const fy = Phaser.Math.Between(250, 1350);
-      forestFloor.fillCircle(fx, fy, Phaser.Math.Between(15, 50));
-    }
-    forestFloor.fillStyle(0x3a4a2a, 0.3);
-    for (let i = 0; i < 30; i++) {
-      const fx = Phaser.Math.Between(2300, 4000);
-      const fy = Phaser.Math.Between(300, 1300);
-      forestFloor.fillCircle(fx, fy, Phaser.Math.Between(20, 60));
-    }
-    forestFloor.setDepth(-9);
-    this.terrainGraphics.push(forestFloor);
+    // Paint leaf interior forest (Tile 7)
+    this.environmentManager.fillGroundRegion(2100, 0, 1900, WORLD_H, 7);
 
-    const canopy = this.add.graphics();
-    canopy.fillStyle(0x1a3a1a, 0.35);
-    canopy.fillRect(2200, 180, 1800, 1300);
-    canopy.setDepth(-7);
-    this.terrainGraphics.push(canopy);
+    // Paint mountain cave floor (Tile 9)
+    this.environmentManager.fillGroundRegion(4000, 0, 1800, WORLD_H, 9);
 
-    const cliffLayer = this.add.graphics();
-    cliffLayer.fillStyle(0x5a4a3a, 1);
-    cliffLayer.fillRect(0, 0, 4000, 120);
-    cliffLayer.fillRect(3980, 0, 120, WORLD_H);
-    cliffLayer.fillStyle(0x4a3a2a, 1);
-    cliffLayer.fillRect(0, 0, 4000, 40);
-    for (let i = 0; i < 30; i++) {
-      const cx = Phaser.Math.Between(0, 3980);
-      const cy = Phaser.Math.Between(0, 100);
-      cliffLayer.fillRect(cx, cy, Phaser.Math.Between(30, 80), Phaser.Math.Between(10, 30));
-    }
-    cliffLayer.setDepth(-8);
-    this.terrainGraphics.push(cliffLayer);
+    // Paint main path (Tile 3)
+    const pathPoints = [
+      { x: 500, y: 1020 }, { x: 620, y: 980 }, { x: 780, y: 900 },
+      { x: 950, y: 800 }, { x: 1100, y: 720 }, { x: 1400, y: 700 },
+      { x: 1700, y: 720 }, { x: 2000, y: 740 }, { x: 2200, y: 770 },
+      { x: 2400, y: 830 }, { x: 2600, y: 900 }, { x: 2850, y: 850 },
+      { x: 3100, y: 790 }, { x: 3350, y: 760 }, { x: 3550, y: 790 },
+      { x: 3750, y: 810 }, { x: 3950, y: 820 }, { x: 4150, y: 840 },
+      { x: 4350, y: 810 }, { x: 4600, y: 800 }, { x: 4850, y: 810 },
+      { x: 5100, y: 800 }, { x: 5350, y: 810 }, { x: 5500, y: 800 }
+    ];
+    this.environmentManager.drawPath(pathPoints, 128);
 
-    const mountainFloor = this.add.graphics();
-    mountainFloor.fillStyle(0x4a4a3a, 1);
-    mountainFloor.fillRect(4000, 0, 1800, WORLD_H);
-    mountainFloor.fillStyle(0x5a5a4a, 0.3);
-    for (let i = 0; i < 50; i++) {
-      const mx = Phaser.Math.Between(4050, WORLD_W - 50);
-      const my = Phaser.Math.Between(50, WORLD_H - 50);
-      mountainFloor.fillCircle(mx, my, Phaser.Math.Between(20, 80));
-    }
-    mountainFloor.fillStyle(0x555545, 0.2);
-    for (let i = 0; i < 30; i++) {
-      const mx = Phaser.Math.Between(4100, WORLD_W - 50);
-      const my = Phaser.Math.Between(100, WORLD_H - 100);
-      mountainFloor.fillRect(mx, my, Phaser.Math.Between(30, 120), Phaser.Math.Between(20, 60));
-    }
-    mountainFloor.setDepth(-9);
-    this.terrainGraphics.push(mountainFloor);
-
-    const pathGraphics = this.add.graphics();
-    pathGraphics.lineStyle(20, 0x8a7a5a, 0.6);
-    pathGraphics.beginPath();
-    pathGraphics.moveTo(500, 1020);
-    pathGraphics.lineTo(620, 980);
-    pathGraphics.lineTo(780, 900);
-    pathGraphics.lineTo(950, 800);
-    pathGraphics.lineTo(1100, 720);
-    pathGraphics.lineTo(1400, 700);
-    pathGraphics.lineTo(1700, 720);
-    pathGraphics.lineTo(2000, 740);
-    pathGraphics.lineTo(2200, 770);
-    pathGraphics.lineTo(2400, 830);
-    pathGraphics.lineTo(2600, 900);
-    pathGraphics.lineTo(2850, 850);
-    pathGraphics.lineTo(3100, 790);
-    pathGraphics.lineTo(3350, 760);
-    pathGraphics.lineTo(3550, 790);
-    pathGraphics.lineTo(3750, 810);
-    pathGraphics.lineTo(3950, 820);
-    pathGraphics.lineTo(4150, 840);
-    pathGraphics.lineTo(4350, 810);
-    pathGraphics.lineTo(4600, 800);
-    pathGraphics.lineTo(4850, 810);
-    pathGraphics.lineTo(5100, 800);
-    pathGraphics.lineTo(5350, 810);
-    pathGraphics.lineTo(5500, 800);
-    pathGraphics.strokePath();
-    pathGraphics.lineStyle(14, 0x9a8a6a, 0.4);
-    pathGraphics.beginPath();
-    pathGraphics.moveTo(500, 1020);
-    pathGraphics.lineTo(620, 980);
-    pathGraphics.lineTo(780, 900);
-    pathGraphics.lineTo(950, 800);
-    pathGraphics.lineTo(1100, 720);
-    pathGraphics.lineTo(1400, 700);
-    pathGraphics.lineTo(1700, 720);
-    pathGraphics.lineTo(2000, 740);
-    pathGraphics.lineTo(2200, 770);
-    pathGraphics.lineTo(2400, 830);
-    pathGraphics.lineTo(2600, 900);
-    pathGraphics.lineTo(2850, 850);
-    pathGraphics.lineTo(3100, 790);
-    pathGraphics.lineTo(3350, 760);
-    pathGraphics.lineTo(3550, 790);
-    pathGraphics.lineTo(3750, 810);
-    pathGraphics.lineTo(3950, 820);
-    pathGraphics.lineTo(4150, 840);
-    pathGraphics.lineTo(4350, 810);
-    pathGraphics.lineTo(4600, 800);
-    pathGraphics.lineTo(4850, 810);
-    pathGraphics.lineTo(5100, 800);
-    pathGraphics.lineTo(5350, 810);
-    pathGraphics.lineTo(5500, 800);
-    pathGraphics.strokePath();
-    pathGraphics.setDepth(-8);
-    this.terrainGraphics.push(pathGraphics);
-
-    const hiddenPath = this.add.graphics();
-    hiddenPath.lineStyle(12, 0x7a6a4a, 0.35);
-    hiddenPath.beginPath();
-    hiddenPath.moveTo(2700, 1040);
-    hiddenPath.lineTo(2780, 1100);
-    hiddenPath.lineTo(2850, 1180);
-    hiddenPath.lineTo(2880, 1250);
-    hiddenPath.strokePath();
-    hiddenPath.lineStyle(8, 0x8a7a5a, 0.25);
-    hiddenPath.beginPath();
-    hiddenPath.moveTo(2700, 1040);
-    hiddenPath.lineTo(2780, 1100);
-    hiddenPath.lineTo(2850, 1180);
-    hiddenPath.lineTo(2880, 1250);
-    hiddenPath.strokePath();
-    hiddenPath.setDepth(-8);
-    this.terrainGraphics.push(hiddenPath);
-
-    const streamRender = this.add.graphics();
-    streamRender.lineStyle(10, 0x4a8aaa, 0.5);
-    streamRender.beginPath();
-    streamRender.moveTo(2950, 500);
-    streamRender.lineTo(2970, 600);
-    streamRender.lineTo(3000, 700);
-    streamRender.lineTo(3020, 800);
-    streamRender.lineTo(3050, 950);
-    streamRender.lineTo(3080, 1050);
-    streamRender.lineTo(3120, 1200);
-    streamRender.strokePath();
-    streamRender.lineStyle(6, 0x6aaacc, 0.3);
-    streamRender.beginPath();
-    streamRender.moveTo(2950, 500);
-    streamRender.lineTo(2970, 600);
-    streamRender.lineTo(3000, 700);
-    streamRender.lineTo(3020, 800);
-    streamRender.lineTo(3050, 950);
-    streamRender.lineTo(3080, 1050);
-    streamRender.lineTo(3120, 1200);
-    streamRender.strokePath();
-    streamRender.setDepth(-8);
-    this.terrainGraphics.push(streamRender);
+    // Paint hidden path (Tile 4)
+    const hiddenPoints = [
+      { x: 2700, y: 1040 }, { x: 2780, y: 1100 }, { x: 2850, y: 1180 }, { x: 2880, y: 1250 }
+    ];
+    this.environmentManager.drawPath(hiddenPoints, 80);
   }
 
   private buildFeatures(): void {
@@ -765,53 +608,8 @@ export default class OpeningScene extends Phaser.Scene {
   }
 
   private buildCanyonCliffs(): void {
-    const cliffSides = this.add.graphics();
-    const cliffColor = 0x5a4a3a;
-    const cliffDark = 0x4a3a2a;
-    const cliffHighlight = 0x6a5a4a;
-
-    const drawCliffWall = (x1: number, y1: number, x2: number, _y2: number, side: "top" | "bottom") => {
-      const yBase = y1;
-      const dir = side === "top" ? -1 : 1;
-
-      cliffSides.fillStyle(cliffColor, 1);
-      cliffSides.fillRect(x1, yBase, x2 - x1, 80 * dir < 0 ? -80 : 80);
-
-      cliffSides.fillStyle(cliffDark, 0.4);
-      for (let i = 0; i < 20; i++) {
-        const rx = Phaser.Math.Between(x1, x2);
-        const ry = yBase + Phaser.Math.Between(0, 70) * dir;
-        cliffSides.fillRect(rx, ry, Phaser.Math.Between(10, 40), Phaser.Math.Between(5, 15) * dir);
-      }
-
-      cliffSides.fillStyle(cliffHighlight, 0.2);
-      for (let i = 0; i < 12; i++) {
-        const rx = Phaser.Math.Between(x1, x2);
-        const ry = yBase + Phaser.Math.Between(5, 65) * dir;
-        cliffSides.fillRect(rx, ry, Phaser.Math.Between(5, 20), Phaser.Math.Between(3, 8) * dir);
-      }
-    };
-
-    drawCliffWall(3900, 200, 5500, 200, "top");
-    drawCliffWall(3900, 1350, 5500, 1350, "bottom");
-
-    const cliffFaces = this.add.graphics();
-    cliffFaces.fillStyle(0x6a5a4a, 0.3);
-    for (let i = 0; i < 15; i++) {
-      const rx = Phaser.Math.Between(3950, 5450);
-      const ry = Phaser.Math.Between(220, 280);
-      cliffFaces.fillTriangle(rx, ry, rx + 15, ry - 10, rx + 20, ry + 5);
-    }
-    for (let i = 0; i < 15; i++) {
-      const rx = Phaser.Math.Between(3950, 5450);
-      const ry = Phaser.Math.Between(1250, 1320);
-      cliffFaces.fillTriangle(rx, ry, rx + 15, ry + 10, rx + 20, ry - 5);
-    }
-    cliffFaces.setDepth(-8);
-    cliffSides.setDepth(-8);
-
-    this.terrainGraphics.push(cliffSides);
-    this.terrainGraphics.push(cliffFaces);
+    this.environmentManager.drawCliff(3900, 120, 1600, 80);
+    this.environmentManager.drawCliff(3900, 1350, 1600, 80);
   }
 
   private spawnWorldObjects(): void {
@@ -869,6 +667,9 @@ export default class OpeningScene extends Phaser.Scene {
     this.spawnFallenLogs();
     this.spawnForestWalls();
     this.spawnStreamWalls();
+
+    this.environmentManager.decorateWorldObjects(this.worldObjects);
+    this.environmentManager.scatterDecorations(0.03, this.player?.x, this.player?.y);
   }
 
   private spawnCaveRocks(): void {
@@ -1350,7 +1151,7 @@ export default class OpeningScene extends Phaser.Scene {
     this.time.delayedCall(returnDelay, () => {
       const p = this.player!;
       this.cameras.main.centerOn(p.x, p.y);
-      this.cameraManager!.setZoom(1);
+      this.cameraManager!.setZoom(WORLD_CONSTANTS.CAMERA.DEFAULT_ZOOM);
       this.cameraManager!.follow(p);
 
       this.playerControlEnabled = true;

@@ -50,6 +50,7 @@ export class InteractionPrompt {
   }
 
   public update(camera: Phaser.Cameras.Scene2D.Camera): void {
+    this.container.setScale(1 / camera.zoom);
     if (!this.visible) {
       if (this.currentAlpha > 0.01) {
         this.currentAlpha = Phaser.Math.Linear(this.currentAlpha, 0, this.fadeSpeed * 2);

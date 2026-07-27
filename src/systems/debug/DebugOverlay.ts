@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { Logger } from "../../core/Logger";
+import { UIHelpers } from "../../utils/UIHelpers";
 import { InputManager } from "../../core/InputManager";
 import { InputAction } from "../../core/InputAction";
 import { CameraManager } from "../camera/CameraManager";
@@ -139,6 +140,7 @@ export class DebugOverlay {
   }
 
   public update(time: number, delta: number): void {
+    UIHelpers.adjustForZoom(this.container, 0, 0);
     if (!this.enabled) return;
 
     this.frameCount++;

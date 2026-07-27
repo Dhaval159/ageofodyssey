@@ -14,6 +14,13 @@ export const AssetKeys = {
   SPRITE_CYCLOPS: "sprite-cyclops",
   TILESET_DUNGEON: "tileset-dungeon",
   TILESET_CAVE: "tileset-cave",
+
+  ENVIRONMENT_FOREST_TILESET: "env-forest-tileset",
+  ENVIRONMENT_CAVE_TILESET: "env-cave-tileset",
+  ENVIRONMENT_SANDBOX_TILESET: "env-sandbox-tileset",
+  ENVIRONMENT_FOREST_TILEMAP: "env-forest-tilemap",
+  ENVIRONMENT_CAVE_TILEMAP: "env-cave-tilemap",
+  ENVIRONMENT_SANDBOX_TILEMAP: "env-sandbox-tilemap",
   MUSIC_THEME: "music-theme",
   SFX_CLICK: "sfx-click",
   FONT_GREEK: "font-greek",

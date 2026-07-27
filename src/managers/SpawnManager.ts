@@ -19,26 +19,13 @@ export class SpawnManager {
   }
 
   public createGround(width: number, height: number): void {
-    const ground = this.scene.add.graphics();
-    ground.fillStyle(0x1a1a2e, 1);
-    ground.fillRect(0, 0, width, height);
-    ground.lineStyle(1, 0x2e2e4f, 0.5);
-    for (let x = 0; x <= width; x += 80) {
-      ground.lineBetween(x, 0, x, height);
-    }
-    for (let y = 0; y <= height; y += 80) {
-      ground.lineBetween(0, y, width, y);
-    }
-    ground.setDepth(-10);
-    Logger.getInstance().log("[SpawnManager] Ground created");
+    // Replaced by EnvironmentManager tilemap
+    Logger.getInstance().log("[SpawnManager] Ground skipped (tiled ground used instead)");
   }
 
   public createBoundary(width: number, height: number): void {
-    const boundary = this.scene.add.graphics();
-    boundary.lineStyle(6, 0xff5555, 0.4);
-    boundary.strokeRect(0, 0, width, height);
-    boundary.setDepth(-5);
-    Logger.getInstance().log("[SpawnManager] Boundary created");
+    // Replaced by EnvironmentManager tilemap
+    Logger.getInstance().log("[SpawnManager] Boundary skipped");
   }
 
   public spawnRock(bounds: WorldBounds): WorldObject {

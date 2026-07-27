@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { GAME_CONFIG } from "../../../constants/GameConstants";
+import { UIHelpers } from "../../../utils/UIHelpers";
 
 export class EscapeTimerUI extends Phaser.GameObjects.Container {
   private timerText: Phaser.GameObjects.Text;
@@ -12,6 +13,7 @@ export class EscapeTimerUI extends Phaser.GameObjects.Container {
   private maxTime: number = 100;
   private isUrgent: boolean = false;
   private flashTimer: number = 0;
+  private screenY: number = 35;
 
   constructor(scene: Phaser.Scene) {
     super(scene, GAME_CONFIG.WIDTH / 2, 35);
@@ -57,11 +59,12 @@ export class EscapeTimerUI extends Phaser.GameObjects.Container {
     this.maxTime = maxTime;
     this.setVisible(true);
     this.setAlpha(0);
-    this.y = -30;
+    this.screenY = -30;
+    this.y = -30; // initial fallback
 
     this.scene.tweens.add({
       targets: this,
-      y: 35,
+      screenY: 35,
       alpha: 1,
       duration: 600,
       ease: "Cubic.easeOut",
@@ -71,7 +74,7 @@ export class EscapeTimerUI extends Phaser.GameObjects.Container {
   public hide(): void {
     this.scene.tweens.add({
       targets: this,
-      y: -30,
+      screenY: -30,
       alpha: 0,
       duration: 400,
       ease: "Cubic.easeIn",
@@ -82,6 +85,7 @@ export class EscapeTimerUI extends Phaser.GameObjects.Container {
   }
 
   public update(timeRemaining: number): void {
+    UIHelpers.adjustForZoom(this, GAME_CONFIG.WIDTH / 2, this.screenY);
     const seconds = Math.ceil(timeRemaining);
     this.timerText.setText(`ESCAPE: ${seconds}`);
 

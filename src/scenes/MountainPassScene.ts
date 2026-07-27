@@ -20,6 +20,7 @@ import { CheckpointSystem } from "../systems/save/CheckpointSystem";
 import { IInteractable } from "../systems/interaction/IInteractable";
 import { InteractableProp, InteractablePropConfig } from "../entities/props/InteractableProp";
 import { HUD } from "../systems/effects/HUD";
+import { EnvironmentManager } from "../systems/environment/EnvironmentManager";
 
 const MAP_W = 6200;
 const MAP_H = 1600;
@@ -60,6 +61,7 @@ export default class MountainPassScene extends Phaser.Scene {
     private campfireFlickerTimer: number = 0;
     private waterfallGfx: Phaser.GameObjects.Graphics | null = null;
     private waterfallTimer: number = 0;
+    private environmentManager!: EnvironmentManager;
 
     private cinematicActive: boolean = true;
     private playerControlEnabled: boolean = false;
@@ -116,127 +118,56 @@ export default class MountainPassScene extends Phaser.Scene {
         this.setupCheckpoints();
         this.registerInteractables();
 
+        this.environmentManager.decorateWorldObjects(this.worldObjects);
+        this.environmentManager.scatterDecorations(0.03, this.player?.x, this.player?.y);
+
         this.startCinematic();
     }
 
     private buildTerrain(): void {
-        const grassBase = this.add.graphics();
-        grassBase.fillStyle(0x2a5a2a, 1);
-        grassBase.fillRect(0, 0, 1800, MAP_H);
-        grassBase.fillStyle(0x326632, 0.3);
-        for (let i = 0; i < 50; i++) {
-            const gx = Phaser.Math.Between(0, 1800);
-            const gy = Phaser.Math.Between(0, MAP_H);
-            grassBase.fillCircle(gx, gy, Phaser.Math.Between(15, 40));
-        }
-        grassBase.setDepth(-9);
-        this.terrainGraphics.push(grassBase);
+        this.environmentManager = new EnvironmentManager(this, "forest");
+        this.environmentManager.initialize(MAP_W, MAP_H);
 
-        const mountainBase = this.add.graphics();
-        mountainBase.fillStyle(0x4a4a3a, 1);
-        mountainBase.fillRect(1600, 0, MAP_W - 1600, MAP_H);
-        mountainBase.fillStyle(0x5a5a4a, 0.3);
-        for (let i = 0; i < 80; i++) {
-            const mx = Phaser.Math.Between(1700, MAP_W - 50);
-            const my = Phaser.Math.Between(50, MAP_H - 50);
-            mountainBase.fillCircle(mx, my, Phaser.Math.Between(15, 50));
-        }
-        mountainBase.fillStyle(0x555545, 0.2);
-        for (let i = 0; i < 40; i++) {
-            const mx = Phaser.Math.Between(1800, MAP_W - 50);
-            const my = Phaser.Math.Between(100, MAP_H - 100);
-            mountainBase.fillRect(mx, my, Phaser.Math.Between(20, 80), Phaser.Math.Between(10, 40));
-        }
-        mountainBase.setDepth(-9);
-        this.terrainGraphics.push(mountainBase);
+        // Fill forest ground section with grass tiles (Tile 0)
+        this.environmentManager.fillGroundRegion(0, 0, 1800, MAP_H, 0);
 
-        const path = this.add.graphics();
-        path.lineStyle(18, 0x8a7a5a, 0.5);
-        path.beginPath();
-        path.moveTo(PLAYER_SPAWN.x, PLAYER_SPAWN.y);
-        path.lineTo(600, 780);
-        path.lineTo(900, 750);
-        path.lineTo(1200, 780);
-        path.lineTo(1500, 800);
-        path.lineTo(1700, 820);
-        path.lineTo(1900, 800);
-        path.lineTo(2100, 780);
-        path.lineTo(2300, 770);
-        path.lineTo(2500, 760);
-        path.lineTo(2700, 750);
-        path.lineTo(2900, 730);
-        path.lineTo(3100, 720);
-        path.lineTo(3300, 710);
-        path.lineTo(3500, 700);
-        path.lineTo(3700, 720);
-        path.lineTo(3900, 740);
-        path.lineTo(4100, 760);
-        path.lineTo(4300, 750);
-        path.lineTo(4500, 740);
-        path.lineTo(4700, 750);
-        path.lineTo(4900, 750);
-        path.lineTo(5100, 740);
-        path.lineTo(5300, 720);
-        path.lineTo(5500, 710);
-        path.lineTo(CAVE_ENTRANCE.x, CAVE_ENTRANCE.y);
-        path.strokePath();
-        path.lineStyle(10, 0x9a8a6a, 0.3);
-        path.beginPath();
-        path.moveTo(PLAYER_SPAWN.x, PLAYER_SPAWN.y);
-        path.lineTo(600, 780);
-        path.lineTo(900, 750);
-        path.lineTo(1200, 780);
-        path.lineTo(1500, 800);
-        path.lineTo(1700, 820);
-        path.lineTo(1900, 800);
-        path.lineTo(2100, 780);
-        path.lineTo(2300, 770);
-        path.lineTo(2500, 760);
-        path.lineTo(2700, 750);
-        path.lineTo(2900, 730);
-        path.lineTo(3100, 720);
-        path.lineTo(3300, 710);
-        path.lineTo(3500, 700);
-        path.lineTo(3700, 720);
-        path.lineTo(3900, 740);
-        path.lineTo(4100, 760);
-        path.lineTo(4300, 750);
-        path.lineTo(4500, 740);
-        path.lineTo(4700, 750);
-        path.lineTo(4900, 750);
-        path.lineTo(5100, 740);
-        path.lineTo(5300, 720);
-        path.lineTo(5500, 710);
-        path.lineTo(CAVE_ENTRANCE.x, CAVE_ENTRANCE.y);
-        path.strokePath();
-        path.setDepth(-8);
-        this.terrainGraphics.push(path);
+        // Fill mountain section with rocky soil/mossy stone floor (Tile 9)
+        this.environmentManager.fillGroundRegion(1600, 0, MAP_W - 1600, MAP_H, 9);
 
-        const cliffTop = this.add.graphics();
-        cliffTop.fillStyle(0x5a4a3a, 1);
-        cliffTop.fillRect(0, 0, MAP_W, 100);
-        cliffTop.fillStyle(0x4a3a2a, 1);
-        cliffTop.fillRect(0, 0, MAP_W, 30);
-        for (let i = 0; i < 40; i++) {
-            const cx = Phaser.Math.Between(0, MAP_W);
-            const cy = Phaser.Math.Between(0, 80);
-            cliffTop.fillRect(cx, cy, Phaser.Math.Between(20, 60), Phaser.Math.Between(8, 25));
-        }
-        cliffTop.setDepth(-8);
-        this.terrainGraphics.push(cliffTop);
+        // Draw top and bottom boundary cliffs
+        this.environmentManager.drawCliff(0, 0, MAP_W, 80);
+        this.environmentManager.drawCliff(0, MAP_H - 80, MAP_W, 80);
 
-        const cliffBottom = this.add.graphics();
-        cliffBottom.fillStyle(0x5a4a3a, 1);
-        cliffBottom.fillRect(0, MAP_H - 100, MAP_W, 100);
-        cliffBottom.fillStyle(0x4a3a2a, 1);
-        cliffBottom.fillRect(0, MAP_H - 30, MAP_W, 30);
-        for (let i = 0; i < 40; i++) {
-            const cx = Phaser.Math.Between(0, MAP_W);
-            const cy = Phaser.Math.Between(MAP_H - 80, MAP_H);
-            cliffBottom.fillRect(cx, cy, Phaser.Math.Between(20, 60), Phaser.Math.Between(8, 25));
-        }
-        cliffBottom.setDepth(-8);
-        this.terrainGraphics.push(cliffBottom);
+        // Draw main path (Tile 3)
+        const pathPoints = [
+            PLAYER_SPAWN,
+            { x: 600, y: 780 },
+            { x: 900, y: 750 },
+            { x: 1200, y: 780 },
+            { x: 1500, y: 800 },
+            { x: 1700, y: 820 },
+            { x: 1900, y: 800 },
+            { x: 2100, y: 780 },
+            { x: 2300, y: 770 },
+            { x: 2500, y: 760 },
+            { x: 2700, y: 750 },
+            { x: 2900, y: 730 },
+            { x: 3100, y: 720 },
+            { x: 3300, y: 710 },
+            { x: 3500, y: 700 },
+            { x: 3700, y: 720 },
+            { x: 3900, y: 740 },
+            { x: 4100, y: 760 },
+            { x: 4300, y: 750 },
+            { x: 4500, y: 740 },
+            { x: 4700, y: 750 },
+            { x: 4900, y: 750 },
+            { x: 5100, y: 740 },
+            { x: 5300, y: 720 },
+            { x: 5500, y: 710 },
+            CAVE_ENTRANCE
+        ];
+        this.environmentManager.drawPath(pathPoints, 128);
     }
 
     private buildForestClearing(): void {
@@ -993,7 +924,7 @@ export default class MountainPassScene extends Phaser.Scene {
     private endCinematic(): void {
         if (!this.cameraManager || !this.player) return;
 
-        this.cameraManager.setZoom(1);
+        this.cameraManager.setZoom(WORLD_CONSTANTS.CAMERA.DEFAULT_ZOOM);
         this.cameraManager.follow(this.player);
         this.playerControlEnabled = true;
         this.cinematicActive = false;

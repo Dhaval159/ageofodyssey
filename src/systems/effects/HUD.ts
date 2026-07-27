@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { Player } from "../../entities/player/Player";
+import { UIHelpers } from "../../utils/UIHelpers";
 
 interface HealthBar {
   bg: Phaser.GameObjects.Rectangle;
@@ -48,6 +49,7 @@ export class HUD {
   }
 
   public update(player: Player | null): void {
+    UIHelpers.adjustForZoom(this.container, 0, 0);
     if (!player) return;
 
     const hp = player.healthComponent.getCurrentHealth();
